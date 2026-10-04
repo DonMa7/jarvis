@@ -718,6 +718,12 @@ body.modo-voz .anexo-chip { display:none !important; }
   .hourly-weather { grid-template-columns:repeat(3,1fr); }
 }
 
+
+.news-iframe {
+  width:100%; height:360px; border:0; border-radius:12px;
+  background:#141414;
+}
+
 </style>
 </head>
 <body>
@@ -1174,7 +1180,7 @@ function pararFala() {
   document.body.classList.remove("jarvis-falando");
 }
 // ===== INICIALIZAÇÃO =====
-carregarChat();
+// O histórico é carregado no final do documento, depois de todas as funções serem definidas.
 
 input.addEventListener("keydown", e => {
   if (e.key === "Enter") enviarMensagem();
@@ -1395,12 +1401,12 @@ async function pararFala() {
 }
 
 // --- Limpar conversa (só quando o usuário pede; 2 cliques para confirmar) ---
-let confirmaLimpar = 0;
 function limparConversa(btn) {
-  if (!confirmaLimpar) { btn.textContent = "CONFIRMAR?"; confirmaLimpar = setTimeout(() => { btn.textContent = "LIMPAR"; confirmaLimpar = 0; }, 3000); return; }
-  clearTimeout(confirmaLimpar); confirmaLimpar = 0; btn.textContent = "LIMPAR";
+  if (!confirm("Limpar toda a conversa deste navegador?")) return;
   try { localStorage.removeItem(CHAT_STORAGE); } catch (e) {}
-  chat.innerHTML = ""; adicionarMensagem(saudacao(), "jarvis", false);
+  chat.innerHTML = "";
+  adicionarMensagem(saudacao(), "jarvis", false);
+  $("p-msgs").textContent = "0";
 }
 
 // --- Estados visuais: em espera / processando / falando (observa as classes do body) ---
@@ -1815,6 +1821,26 @@ function obterNoticiasJSONP(url) {
   });
 }
 
+async function obterNoticiasJSON(url) {
+  const r = await fetch(url, { cache:"no-store" });
+  if (!r.ok) throw new Error("news " + r.status);
+  return await r.json();
+}
+
+function mostrarNoticiasIframe(q) {
+  const box = $("news-list");
+  const frame = document.createElement("iframe");
+  frame.className = "news-iframe";
+  frame.title = "Notícias do JARVIS";
+  frame.loading = "lazy";
+  frame.referrerPolicy = "no-referrer";
+  frame.src = BRIEFING_GDELT +
+    "?query=" + encodeURIComponent(q) +
+    "&mode=artlist&format=html&maxrecords=7&timespan=24h&sort=datedesc";
+  box.textContent = "";
+  box.appendChild(frame);
+}
+
 async function obterNoticias() {
   const box = $("news-list");
   box.innerHTML = '<div class="brief-muted">Atualizando notícias…</div>';
@@ -1824,20 +1850,25 @@ async function obterNoticias() {
   if (briefingCategoria === "technology") q = '(technology OR tecnologia OR "artificial intelligence" OR AI)';
   if (briefingCategoria === "sports") q = '(sports OR esporte OR futebol)';
 
-  const u = BRIEFING_GDELT +
+  const base = BRIEFING_GDELT +
     "?query=" + encodeURIComponent(q) +
-    "&mode=artlist&format=jsonp&maxrecords=8&timespan=24h&sort=datedesc";
+    "&mode=artlist&maxrecords=8&timespan=24h&sort=datedesc";
 
   try {
-    const d = await obterNoticiasJSONP(u);
-    const artigos = Array.isArray(d.articles) ? d.articles.slice(0, 8) : [];
+    let d;
+    try {
+      d = await obterNoticiasJSONP(base + "&format=jsonp");
+    } catch (jsonpErro) {
+      d = await obterNoticiasJSON(base + "&format=json");
+    }
 
+    const artigos = Array.isArray(d.articles) ? d.articles.slice(0, 8) : [];
     if (!artigos.length) {
-      box.innerHTML = '<div class="brief-muted">Nenhuma notícia recente encontrada nesta categoria.</div>';
+      mostrarNoticiasIframe(q);
       return;
     }
 
-    box.innerHTML = "";
+    box.textContent = "";
     for (const a of artigos) {
       const item = document.createElement("div");
       item.className = "news-item";
@@ -1858,10 +1889,8 @@ async function obterNoticias() {
       box.appendChild(item);
     }
   } catch (e) {
-    console.error("Erro ao carregar notícias:", e);
-    box.innerHTML =
-      '<div class="brief-muted">As notícias não puderam ser atualizadas agora.</div>' +
-      '<button class="mini brief-link" onclick="obterNoticias()">TENTAR NOVAMENTE</button>';
+    console.error("Erro nas notícias:", e);
+    mostrarNoticiasIframe(q);
   }
 }
 
@@ -2073,6 +2102,20 @@ document.addEventListener("keydown", e => {
     fecharModoVoz();
   }
 });
+</script>
+<script>
+(function iniciarPersistenciaJARVIS() {
+  try {
+    carregarChat();
+  } catch (e) {
+    console.error("Falha ao carregar histórico:", e);
+  }
+  if (!chat.children.length && typeof saudacao === "function") {
+    adicionarMensagem(saudacao(), "jarvis", false);
+  }
+  if (typeof renderMemoria === "function") renderMemoria();
+  if (typeof renderNotas === "function") renderNotas();
+})();
 </script>
 </body>
 </html>

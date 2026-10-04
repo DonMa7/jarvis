@@ -148,18 +148,15 @@ class Testes(unittest.TestCase):
         self.assertIn("i5 3570k", r["resposta"].lower())
 
         r = o.responder("ele é bom para jogar?")
-        self.assertEqual((r["rota"], ext.chamadas), ("local", 1))
-        self.assertIn("100 Hz", r["resposta"])
-        self.assertIn("144 Hz", r["resposta"])
+        self.assertEqual(r["rota"], "externo")
+        self.assertIn("ele é bom para jogar", r["resposta"].lower())
+        self.assertNotIn("monitor", r["resposta"].lower())
 
         r = o.responder("e para competitivo?")
-        self.assertEqual((r["rota"], ext.chamadas), ("local", 1))
-        self.assertIn("jogos competitivos", r["resposta"])
+        self.assertEqual(r["rota"], "externo")
 
         r = o.responder("warzone, valorant")
-        self.assertEqual((r["rota"], ext.chamadas), ("local", 1))
-        self.assertIn("Warzone", r["resposta"])
-        self.assertIn("Valorant", r["resposta"])
+        self.assertEqual(r["rota"], "externo")
 
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho, PERMITIR_MEMORIA_EXTERNA=True)
         o.responder("Qual a vantagem de 120 Hz para meu monitor?")

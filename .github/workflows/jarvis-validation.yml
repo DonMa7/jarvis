@@ -1,0 +1,41 @@
+name: JARVIS validation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check required files
+        run: |
+          test -f server.py
+          test -f jarvis_personalidade.py
+
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Provide test-only personality stub when missing
+        shell: bash
+        run: |
+          if [ ! -f jarvis_personalidade.py ]; then
+            cat > jarvis_personalidade.py <<'PY'
+def montar_prompt():
+    return "JARVIS TEST STUB"
+PY
+          fi
+      - name: Compile Python modules
+        run: |
+          python -m py_compile server.py orquestrador.py capacidades.py jarvis_config.py provider_base.py provider_local.py provider_nvidia.py testes_orquestrador.py verificar_viabilidade_local.py jarvis_personalidade.py
+      - name: Run test suite
+        run: python testes_orquestrador.py

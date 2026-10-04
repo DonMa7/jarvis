@@ -32,6 +32,31 @@ orq = Orquestrador(NVIDIA_MODEL=MODEL)
 historico = []
 historico_lock = threading.Lock()
 
+# Histórico por sessão: só é usado para o provider externo quando a política permitir.
+historicos_sessao = {}
+historicos_lock = threading.Lock()
+
+def obter_historico_sessao(sessao_id, limite):
+    chave = (sessao_id or "sessao-padrao").strip()[:160] or "sessao-padrao"
+    with historicos_lock:
+        dados = list(historicos_sessao.get(chave, []))
+    if limite <= 0:
+        return []
+    if dados and dados[0]["role"] == "assistant":
+        dados = dados[1:]
+    return dados[-limite:]
+
+def adicionar_historico_sessao(sessao_id, mensagens, limite):
+    if limite <= 0:
+        return
+    chave = (sessao_id or "sessao-padrao").strip()[:160] or "sessao-padrao"
+    with historicos_lock:
+        lista = historicos_sessao.setdefault(chave, [])
+        lista.extend(mensagens)
+        del lista[:-limite]
+        if len(historicos_sessao) > 100:
+            historicos_sessao.pop(next(iter(historicos_sessao)))
+
 # Contexto local separado por sessão do navegador.
 # Não é persistido e não é enviado ao provider externo por padrão.
 contextos_sessao = {}
@@ -195,12 +220,7 @@ class JarvisServer(BaseHTTPRequestHandler):
 
             limite = orq.cfg["MAX_HISTORICO"]
 
-            with historico_lock:
-                recente = list(historico[-limite:]) if limite > 0 else []
-
-            # Sempre começa por uma fala do usuário
-            if recente and recente[0]["role"] == "assistant":
-                recente = recente[1:]
+            recente = obter_historico_sessao(sessao_id, limite)
 
             # =========================================
             # ORQUESTRADOR: LOCAL > FERRAMENTA > INTERNET > NVIDIA
@@ -228,12 +248,15 @@ class JarvisServer(BaseHTTPRequestHandler):
 
             # Só respostas bem-sucedidas entram no histórico
             if limite > 0 and resultado["rota"] in ("ferramenta", "local", "internet", "externo"):
+                par = [
+                    {"role": "user", "content": texto_usuario},
+                    {"role": "assistant", "content": resposta}
+                ]
+                adicionar_historico_sessao(sessao_id, par, limite)
 
+                # Mantém o histórico global por compatibilidade com integrações antigas.
                 with historico_lock:
-
-                    historico.append({"role": "user", "content": texto_usuario})
-                    historico.append({"role": "assistant", "content": resposta})
-
+                    historico.extend(par)
                     del historico[:-limite]
 
             print("JARVIS:", resposta)

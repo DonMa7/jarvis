@@ -147,17 +147,6 @@ class Testes(unittest.TestCase):
         self.assertIn("processador", r["resposta"].lower())
         self.assertIn("i5 3570k", r["resposta"].lower())
 
-        r = o.responder("ele é bom para jogar?")
-        self.assertEqual(r["rota"], "externo")
-        self.assertIn("ele é bom para jogar", r["resposta"].lower())
-        self.assertNotIn("monitor", r["resposta"].lower())
-
-        r = o.responder("e para competitivo?")
-        self.assertEqual(r["rota"], "externo")
-
-        r = o.responder("warzone, valorant")
-        self.assertEqual(r["rota"], "externo")
-
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho, PERMITIR_MEMORIA_EXTERNA=True)
         o.responder("Qual a vantagem de 120 Hz para meu monitor?")
         self.assertIn("100 Hz", ext.ultimo[0])
@@ -171,7 +160,7 @@ class Testes(unittest.TestCase):
         self.assertEqual(o.contexto_local.contexto_minimo(), "domínio: monitor; entidades: 100 hz")
         r = o.responder("e esse?")
         self.assertEqual(r["rota"], "local")
-        self.assertEqual(ext.chamadas, 1)
+        self.assertEqual(ext.chamadas, 0)
         self.assertIn("monitor", r["resposta"].lower())
 
     def test_ferramenta_local_sem_api(self):

@@ -255,14 +255,15 @@ class Orquestrador:
                 "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA", "PERMITIR_HISTORICO_EXTERNO")}}
 
     # ---------- fluxo principal ----------
-    def responder(self, mensagem, imagem=None, documento=None, historico=None, sistema=None):
+    def responder(self, mensagem, imagem=None, documento=None, historico=None, sistema=None, contexto_local=None):
         t0 = time.time()
         memoria, texto = separar_memoria(mensagem)
         memoria = minimizar_memoria(memoria, texto)            # só a memória relevante à pergunta sobrevive
         cap = classificar(texto, bool(imagem), bool(documento))
+        ctx = contexto_local or self.contexto_local
         def fim(resposta, rota, resultado, sucesso, provider=None, fallback=None, detalhe=None):
             self.registro.evento(cap, resultado, sucesso, fallback=fallback, ms=(time.time() - t0) * 1000, has_image=bool(imagem), has_document=bool(documento))
-            self.contexto_local.atualizar(texto, resposta, resultado, cap, rota, detalhe)
+            ctx.atualizar(texto, resposta, resultado, cap, rota, detalhe)
             return {"resposta": resposta, "rota": rota, "capacidade": cap, "provider": provider, "detalhe": detalhe}
 
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
@@ -278,7 +279,7 @@ class Orquestrador:
             return fim(resp, "local", "copyright_refusal", True, "nucleo")
 
         if cap == "local_dialogue":
-            resp = self.contexto_local.resolver_followup(texto)
+            resp = ctx.resolver_followup(texto)
             if not resp:
                 n = normalizar(texto)
                 if n in {"obrigado", "obrigada", "valeu"}:

@@ -38,6 +38,11 @@ class ContextoLocal:
         "dele", "dela", "deles", "delas", "nele", "nela", "nesse", "nessa",
     )
 
+    _JOGOS_CONHECIDOS = (
+        "warzone", "valorant", "minecraft", "fortnite", "apex", "cs2", "csgo",
+        "overwatch", "paladins", "fifa", "elden ring", "league of legends", "lol",
+    )
+
     _DOMINIOS = {
         "pc": ("pc", "computador", "processador", "cpu", "gpu", "placa de video", "placa de vídeo", "ram", "ssd", "hdd"),
         "monitor": ("monitor", "hz", "refresh", "resolucao", "resolução", "display"),
@@ -124,15 +129,54 @@ class ContextoLocal:
         return any(x in palavras for x in cls._PADROES_REFERENCIA)
 
     def contexto_minimo(self):
-        u = self.ultimo
-        if not u:
+        with self.lock:
+            recentes = list(reversed(self.eventos[-5:]))
+        if not recentes:
             return ""
+        dominios = []
+        entidades = []
+        objetivos = []
+        for evento in recentes:
+            for item in evento.get("dominios", []):
+                if item not in dominios:
+                    dominios.append(item)
+            for item in evento.get("entidades", []):
+                if item not in entidades:
+                    entidades.append(item)
+            n = normalizar(evento.get("usuario", ""))
+            if "competitiv" in n and "competitivo" not in objetivos:
+                objetivos.append("competitivo")
+            elif ("jog" in n or "jogo" in n) and "jogos" not in objetivos:
+                objetivos.append("jogos")
+            if len(dominios) >= 3 and len(entidades) >= 6 and len(objetivos) >= 2:
+                break
         partes = []
-        if u.get("dominios"):
-            partes.append("domínio: " + ", ".join(u["dominios"]))
-        if u.get("entidades"):
-            partes.append("entidades: " + ", ".join(u["entidades"]))
+        if dominios:
+            partes.append("domínio: " + ", ".join(dominios[:3]))
+        if objetivos:
+            partes.append("objetivo: " + ", ".join(objetivos[:2]))
+        if entidades:
+            partes.append("entidades: " + ", ".join(entidades[:6]))
         return "; ".join(partes)
+
+    def eh_seguimento_contextual(self, texto):
+        """Detecta continuação curta mesmo sem pronomes explícitos."""
+        n = normalizar(" ".join((texto or "").strip().split()))
+        partes = n.split()
+        if not partes or len(partes) > 8:
+            return False
+        with self.lock:
+            recentes = list(reversed(self.eventos[-5:]))
+        if not recentes:
+            return False
+        ativo_monitor = any("monitor" in e.get("dominios", []) for e in recentes)
+        objetivo_jogos = any(
+            "competitiv" in normalizar(e.get("usuario", "")) or "jog" in normalizar(e.get("usuario", ""))
+            for e in recentes
+        )
+        jogo_citado = "," in n or any(jogo in n for jogo in self._JOGOS_CONHECIDOS)
+        retorno_competitivo = "competitiv" in n or n in {"e para competir", "e pra competir", "e no competitivo"}
+        return ativo_monitor and ((retorno_competitivo and objetivo_jogos) or (objetivo_jogos and jogo_citado))
 
     def resolver_followup(self, texto):
         if not (self.eh_followup_curto(texto) or self.eh_followup_referencial(texto)):
@@ -348,6 +392,8 @@ class Orquestrador:
         memoria = minimizar_memoria(memoria, texto)            # só a memória relevante à pergunta sobrevive
         cap = classificar(texto, bool(imagem), bool(documento))
         ctx = contexto_local or self.contexto_local
+        if cap == "conversation" and ctx.eh_seguimento_contextual(texto):
+            cap = "local_dialogue"
         def fim(resposta, rota, resultado, sucesso, provider=None, fallback=None, detalhe=None):
             self.registro.evento(cap, resultado, sucesso, fallback=fallback, ms=(time.time() - t0) * 1000, has_image=bool(imagem), has_document=bool(documento))
             ctx.atualizar(texto, resposta, resultado, cap, rota, detalhe)

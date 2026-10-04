@@ -147,9 +147,9 @@ class Testes(unittest.TestCase):
 
     def test_offline_e_falhas_do_provider(self):
         o, ext, _ = montar(internet=False); r = o.responder("Qual é o estado atual do núcleo?"); self.assertEqual((r["rota"], ext.chamadas, r["resposta"]), ("offline", 0, M_OFFLINE)); self.assertEqual(o.responder("quanto é 2+2")["rota"], "ferramenta")
-        self.assertEqual(montar(ext=FakeExterno(erro=ProviderErro("x", offline=True)))[0].responder("Olá")["rota"], "offline")
-        r = montar(ext=FakeExterno(erro=ProviderErro("x", status=500)))[0].responder("Olá"); self.assertEqual(r["rota"], "erro"); self.assertIn("500", r["detalhe"])
-        o, ext, _ = montar(API_FALLBACK=False); r = o.responder("Olá"); self.assertEqual((r["rota"], ext.chamadas), ("bloqueado", 0)); self.assertIn("API_FALLBACK", r["resposta"])
+        self.assertEqual(montar(ext=FakeExterno(erro=ProviderErro("x", offline=True)))[0].responder("Qual é o estado atual do núcleo?")["rota"], "offline")
+        r = montar(ext=FakeExterno(erro=ProviderErro("x", status=500)))[0].responder("Qual é o estado atual do núcleo?"); self.assertEqual(r["rota"], "erro"); self.assertIn("500", r["detalhe"])
+        o, ext, _ = montar(API_FALLBACK=False); r = o.responder("Qual é o estado atual do núcleo?"); self.assertEqual((r["rota"], ext.chamadas), ("bloqueado", 0)); self.assertIn("API_FALLBACK", r["resposta"])
 
     def test_memoria_so_o_necessario_vai_para_a_nvidia(self):
         self.assertEqual(separar_memoria(MEM + "qual a taxa do meu monitor?")[1], "qual a taxa do meu monitor?")
@@ -245,7 +245,7 @@ class Testes(unittest.TestCase):
         os.environ.pop("NVIDIA_API_KEY", None)
         o = Orquestrador(cfg=carregar(arquivo="/nao/existe.json", ambiente={}), local=FakeLocal(False), internet=lambda h: True, log_path=os.path.join(tempfile.mkdtemp(), "m.json"))
         server, chamar = self._servidor(o)
-        st, _, d = chamar("POST", "/chat", {"mensagem": "Bom dia"}); self.assertEqual((st, d["resposta"]), (200, M_SEM_PRV))
+        st, _, d = chamar("POST", "/chat", {"mensagem": "Qual é o estado atual do núcleo?"}); self.assertEqual((st, d["resposta"]), (200, M_SEM_PRV))
         self.assertIn("38", chamar("POST", "/chat", {"mensagem": "19 vezes 2"})[2]["resposta"]); self.assertFalse(chamar("GET", "/status")[2]["nvidia_configurada"])
         self.assertEqual(server.historico, [{"role": "user", "content": "19 vezes 2"}, {"role": "assistant", "content": "O resultado é 38."}])   # falha não entra no histórico
 

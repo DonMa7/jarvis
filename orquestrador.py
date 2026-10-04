@@ -17,6 +17,7 @@ from capacidades import CAPACIDADES, FERRAMENTAS, FERRAMENTAS_INTERNET, classifi
 from provider_base import ProviderErro
 from provider_local import criar_local
 from provider_nvidia import NvidiaProvider
+from memoria_local import MemoriaLocal
 
 # Mensagens no estilo JARVIS
 M_AVISO   = "Senhor, essa tarefa está além das capacidades do meu núcleo local neste momento. Utilizarei o serviço externo apropriado para concluí-la."
@@ -204,6 +205,11 @@ class Orquestrador:
         self._cache_net = (0.0, False)
         self.registro = Registro(log_path or os.path.join(os.path.dirname(os.path.abspath(__file__)), "memoria_capacidades.json"), self.cfg["LOG_MAX_EVENTOS"])
         self.contexto_local = ContextoLocal()
+        if self.cfg.get("MEMORIA_PERSISTENTE", True):
+            caminho_memoria = self.cfg.get("MEMORIA_LOCAL_PATH") or None
+            self.memoria_local = MemoriaLocal(caminho_memoria, self.cfg.get("MAX_MEMORIAS", 100))
+        else:
+            self.memoria_local = None
 
     # ---------- utilidades ----------
     @staticmethod
@@ -241,7 +247,7 @@ class Orquestrador:
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "frontend", "motivo": "executada pelo site"}
         if nome == "self_awareness":
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "nucleo_local", "motivo": "diagnóstico determinístico do orquestrador"}
-        if nome in ("local_dialogue", "copyright_request"):
+        if nome in ("local_dialogue", "copyright_request", "persistent_memory"):
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "nucleo_local", "motivo": "regra local determinística"}
         if self.local.disponivel() and self.local.suporta(nome) and dado == "texto":
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "modelo_local", "motivo": "modelo local declara suporte"}
@@ -280,6 +286,7 @@ class Orquestrador:
         nomes = {
             "basic_math": "cálculos simples",
             "unit_conversion": "conversão de unidades",
+            "persistent_memory": "memória persistente local",
             "web_search": "pesquisa na internet",
             "conversation": "conversa e tarefas de texto",
             "text_correction": "correção de texto",
@@ -328,7 +335,10 @@ class Orquestrador:
                 "motivo": d["motivo"],
             }
         return {"modelo_local": self.local.disponivel(), "provider_externo": prv.nome if prv else None, "provider_externo_pronto": bool(prv and prv.disponivel()),
-                "modelo_externo": self.cfg.get("NVIDIA_MODEL"), "capacidades": caps,
+                "modelo_externo": self.cfg.get("NVIDIA_MODEL"),
+                "memoria_persistente": bool(self.memoria_local),
+                "quantidade_memorias": self.memoria_local.quantidade() if self.memoria_local else 0,
+                "capacidades": caps,
                 "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA", "PERMITIR_HISTORICO_EXTERNO")}}
 
     # ---------- fluxo principal ----------
@@ -345,6 +355,20 @@ class Orquestrador:
 
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
         contexto_minimo = ctx.contexto_minimo()
+        memoria_estruturada = self.memoria_local.contexto(texto) if self.memoria_local else ""
+        self.memoria_local.aprender(texto) if self.memoria_local else None
+
+        # Fase 2.2: memória estruturada persistente. O dado fica no J7 e só é
+        # anexado a um modelo quando ele estiver rodando localmente ou quando
+        # a política permitir memória externa.
+        if cap == "persistent_memory":
+            if self.memoria_local:
+                if self.memoria_local.e_pedido_memoria(texto):
+                    return fim(self.memoria_local.resumo(), "local", "memory_summary_ok", True, "nucleo")
+                direta = self.memoria_local.resposta_direta(texto)
+                if direta:
+                    return fim(direta, "local", "memory_lookup_ok", True, "nucleo")
+            return fim("Não encontrei essa informação na minha memória persistente local.", "local", "memory_lookup_miss", True, "nucleo")
 
         # Fase 2: inteligência local antes de modelo, internet ou NVIDIA.
         # Pedidos de reprodução integral e continuidade curta não precisam de API.
@@ -381,8 +405,13 @@ class Orquestrador:
         if not imagem and not documento and self.local.disponivel() and self.local.suporta(cap):
             try:
                 local_mensagem = completo
-                if ctx.eh_followup_referencial(texto) and contexto_minimo:
-                    local_mensagem = "Contexto local relevante: " + contexto_minimo + "\n\nPergunta atual: " + texto
+                blocos = []
+                if contexto_minimo and ctx.eh_followup_referencial(texto):
+                    blocos.append("Contexto da conversa: " + contexto_minimo)
+                if memoria_estruturada:
+                    blocos.append(memoria_estruturada)
+                if blocos:
+                    local_mensagem = "\n\n".join(blocos) + "\n\nPergunta atual: " + texto
                 return fim(self.local.generate(local_mensagem, historico, sistema), "local", "local_ok", True, self.local.nome)
             except Exception as e: local_erro, detalhe_local = True, "local: %s" % e
         resultado_local = "local_error" if local_erro else ("local_insufficient" if self.local.disponivel() else "local_unavailable")
@@ -433,6 +462,8 @@ class Orquestrador:
         enviar = completo if self.cfg["PERMITIR_MEMORIA_EXTERNA"] else self._juntar(texto, documento)
         if self.cfg["PERMITIR_HISTORICO_EXTERNO"] and ctx.eh_followup_referencial(texto) and contexto_minimo:
             enviar = "Contexto relevante da conversa: " + contexto_minimo + "\n\nPergunta atual: " + enviar
+        if self.cfg["PERMITIR_MEMORIA_EXTERNA"] and memoria_estruturada:
+            enviar = memoria_estruturada + "\n\n" + enviar
         # Privacidade: o provider externo recebe o histórico somente quando explicitamente permitido.
         historico_externo = historico if self.cfg["PERMITIR_HISTORICO_EXTERNO"] else []
         try:

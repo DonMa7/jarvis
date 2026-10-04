@@ -898,7 +898,7 @@ body.modo-voz .anexo-chip { display:none !important; }
         </div>
       </section>
     </div>
-    <div class="brief-footer">Dados externos carregados somente quando o briefing é aberto. Informações locais permanecem no navegador.</div>
+    <div class="brief-footer">Clima e câmbio vêm de serviços públicos; notícias são atualizadas pelo GDELT quando o briefing é aberto.</div>
   </div>
 </div>
 <div id="notas-overlay" aria-hidden="true">
@@ -926,7 +926,7 @@ body.modo-voz .anexo-chip { display:none !important; }
     </div>
   </div>
 </div>
-<div id="overlay onclick="if (event.target === this) fecharPainel()"><div class="pn"><h2 id="ov-titulo"></h2><div id="ov-corpo"></div><button class="mini" style="margin-top:16px" onclick="fecharPainel()">FECHAR</button></div></div>
+<div id="overlay" onclick="if (event.target === this) fecharPainel()"><div class="pn"><h2 id="ov-titulo"></h2><div id="ov-corpo"></div><button class="mini" style="margin-top:16px" onclick="fecharPainel()">FECHAR</button></div></div>
 <div id="paleta" onclick="if (event.target === this) fecharPaleta()"><div class="pal"><input id="paleta-q" placeholder="Digite para buscar um comando…" autocomplete="off"><div id="paleta-lista"></div></div></div>
 <div id="toast" onclick="this.classList.remove('on')"></div>
 
@@ -1778,41 +1778,90 @@ async function obterCambio() {
 function dominioBonito(url) {
   try { return new URL(url).hostname.replace(/^www\./,""); } catch (e) { return ""; }
 }
+function obterNoticiasJSONP(url) {
+  return new Promise((resolve, reject) => {
+    const nome = "jarvisNews_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+    const script = document.createElement("script");
+    let fim = false;
+    const limite = setTimeout(() => {
+      if (fim) return;
+      fim = true;
+      cleanup();
+      reject(new Error("timeout"));
+    }, 10000);
+
+    function cleanup() {
+      clearTimeout(limite);
+      try { delete window[nome]; } catch (e) { window[nome] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[nome] = dados => {
+      if (fim) return;
+      fim = true;
+      cleanup();
+      resolve(dados || {});
+    };
+
+    script.onerror = () => {
+      if (fim) return;
+      fim = true;
+      cleanup();
+      reject(new Error("jsonp"));
+    };
+
+    script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + encodeURIComponent(nome);
+    document.head.appendChild(script);
+  });
+}
+
 async function obterNoticias() {
   const box = $("news-list");
   box.innerHTML = '<div class="brief-muted">Atualizando notícias…</div>';
-  let q = "Brasil OR Brazil";
-  if (briefingCategoria === "world") q = "world OR international";
-  if (briefingCategoria === "technology") q = "technology OR tecnologia OR AI";
-  if (briefingCategoria === "sports") q = "sports OR esporte OR futebol";
-  const u = BRIEFING_GDELT + "?query=" + encodeURIComponent("(" + q + ")") +
-    "&mode=artlist&format=json&maxrecords=7&timespan=12h&sort=datedesc";
+
+  let q = '(Brazil OR Brasil)';
+  if (briefingCategoria === "world") q = '(world OR international)';
+  if (briefingCategoria === "technology") q = '(technology OR tecnologia OR "artificial intelligence" OR AI)';
+  if (briefingCategoria === "sports") q = '(sports OR esporte OR futebol)';
+
+  const u = BRIEFING_GDELT +
+    "?query=" + encodeURIComponent(q) +
+    "&mode=artlist&format=jsonp&maxrecords=8&timespan=24h&sort=datedesc";
+
   try {
-    const r = await fetch(u, { cache:"no-store" });
-    if (!r.ok) throw new Error("news " + r.status);
-    const d = await r.json();
-    const artigos = (d.articles || []).slice(0,7);
+    const d = await obterNoticiasJSONP(u);
+    const artigos = Array.isArray(d.articles) ? d.articles.slice(0, 8) : [];
+
     if (!artigos.length) {
-      box.innerHTML = '<div class="brief-muted">Nenhuma notícia recente encontrada.</div>';
+      box.innerHTML = '<div class="brief-muted">Nenhuma notícia recente encontrada nesta categoria.</div>';
       return;
     }
+
     box.innerHTML = "";
     for (const a of artigos) {
       const item = document.createElement("div");
       item.className = "news-item";
+
       const link = document.createElement("a");
       link.href = a.url || "#";
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = a.title || "Notícia sem título";
+
       const meta = document.createElement("div");
       meta.className = "news-meta";
-      meta.textContent = dominioBonito(a.url) || (a.sourcecountry || "");
+      const fonte = dominioBonito(a.url) || (a.sourcecountry || "");
+      const data = a.seendate ? String(a.seendate).slice(0, 8) : "";
+      meta.textContent = fonte + (data ? " · " + data.slice(6,8) + "/" + data.slice(4,6) : "");
+
       item.append(link, meta);
       box.appendChild(item);
     }
   } catch (e) {
-    box.innerHTML = '<div class="brief-muted">Não foi possível atualizar as notícias agora.</div>';
+    console.error("Erro ao carregar notícias:", e);
+    box.innerHTML =
+      '<div class="brief-muted">As notícias não puderam ser atualizadas agora.</div>' +
+      '<button class="mini brief-link" onclick="obterNoticias()">TENTAR NOVAMENTE</button>';
   }
 }
 

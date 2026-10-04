@@ -12,6 +12,7 @@ from html.parser import HTMLParser
 CAPACIDADES = {
     # --- locais / frontend ---
     "basic_math":       {"tipo": "ferramenta", "desc": "Cálculos simples"},
+    "self_awareness":   {"tipo": "ferramenta", "desc": "Diagnóstico das próprias capacidades e rotas"},
     "web_search":       {"tipo": "ferramenta", "dados": "texto", "aviso": False, "desc": "Busca na internet"},
     "memory":           {"tipo": "frontend",   "desc": "Memória do usuário (navegador)"},
     "local_commands":   {"tipo": "frontend",   "desc": "Comandos locais, timer, cronômetro, sites"},
@@ -58,6 +59,7 @@ def montar_mensagem(memoria, texto):
 
 # ---------- classificador de intenção (regras explícitas, sem depender de erro do modelo) ----------
 _REGRAS = [
+    ("self_awareness",  r"\b(o que (voce|você) (consegue|pode|sabe) fazer|quais (sao|são) (as )?suas capacidades|suas capacidades|como voce (funciona|opera)|como você (funciona|opera))\b"),
     ("text_correction", r"\b(corrij\w*|corrig\w*|revis(e|ar|ao)\b.*\b(texto|ortografia|gramatica)|ortografia|gramatica)\b"),
     ("summarization",   r"\b(resum(a|e|ir|o)|sintetiz\w*)\b"),
     ("translation",     r"\b(traduz\w*|traduc\w*)\b"),

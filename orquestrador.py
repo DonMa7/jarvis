@@ -129,34 +129,16 @@ class ContextoLocal:
         return any(x in palavras for x in cls._PADROES_REFERENCIA)
 
     def contexto_minimo(self):
-        with self.lock:
-            recentes = list(reversed(self.eventos[-5:]))
-        if not recentes:
+        # Para referências ("ele", "isso", "esse"), o assunto imediatamente
+        # anterior é mais confiável que uma mistura de vários turnos antigos.
+        u = self.ultimo
+        if not u:
             return ""
-        dominios = []
-        entidades = []
-        objetivos = []
-        for evento in recentes:
-            for item in evento.get("dominios", []):
-                if item not in dominios:
-                    dominios.append(item)
-            for item in evento.get("entidades", []):
-                if item not in entidades:
-                    entidades.append(item)
-            n = normalizar(evento.get("usuario", ""))
-            if "competitiv" in n and "competitivo" not in objetivos:
-                objetivos.append("competitivo")
-            elif ("jog" in n or "jogo" in n) and "jogos" not in objetivos:
-                objetivos.append("jogos")
-            if len(dominios) >= 3 and len(entidades) >= 6 and len(objetivos) >= 2:
-                break
         partes = []
-        if dominios:
-            partes.append("domínio: " + ", ".join(dominios[:3]))
-        if objetivos:
-            partes.append("objetivo: " + ", ".join(objetivos[:2]))
-        if entidades:
-            partes.append("entidades: " + ", ".join(entidades[:6]))
+        if u.get("dominios"):
+            partes.append("domínio: " + ", ".join(u["dominios"][:3]))
+        if u.get("entidades"):
+            partes.append("entidades: " + ", ".join(u["entidades"][:6]))
         return "; ".join(partes)
 
     def eh_seguimento_contextual(self, texto):

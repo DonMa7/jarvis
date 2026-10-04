@@ -392,8 +392,7 @@ class Orquestrador:
         memoria = minimizar_memoria(memoria, texto)            # só a memória relevante à pergunta sobrevive
         cap = classificar(texto, bool(imagem), bool(documento))
         ctx = contexto_local or self.contexto_local
-        if cap == "conversation" and ctx.eh_seguimento_contextual(texto):
-            cap = "local_dialogue"
+        seguimento_contextual = cap == "conversation" and ctx.eh_seguimento_contextual(texto)
         def fim(resposta, rota, resultado, sucesso, provider=None, fallback=None, detalhe=None):
             self.registro.evento(cap, resultado, sucesso, fallback=fallback, ms=(time.time() - t0) * 1000, has_image=bool(imagem), has_document=bool(documento))
             ctx.atualizar(texto, resposta, resultado, cap, rota, detalhe)
@@ -462,7 +461,7 @@ class Orquestrador:
             except Exception as e: local_erro, detalhe_local = True, "local: %s" % e
         # Fallback conversacional sem modelo local: só chega aqui depois de dar
         # ao modelo local a primeira oportunidade de interpretar o contexto.
-        if self.memoria_local:
+        if self.memoria_local and (seguimento_contextual or not self.local.disponivel()):
             resposta_memoria = self.memoria_local.resposta_contextual(texto, ctx.contexto_minimo())
             if resposta_memoria:
                 return fim(resposta_memoria, "local", "memory_contextual_ok", True, "nucleo")

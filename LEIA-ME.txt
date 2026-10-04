@@ -1,0 +1,33 @@
+JARVIS HÍBRIDO - estrutura e execução
+======================================
+
+index.html -> server.py -> orquestrador -> LOCAL > FERRAMENTA > INTERNET > NVIDIA
+
+ESTRUTURA (tudo na MESMA pasta, sem subpastas; não depende de "providers/")
+  server.py                    servidor (porta 8080, /chat, CORS, {"resposta": "..."})  [ALTERADO]
+  jarvis_personalidade.py      personalidade JARVIS (inalterado)
+  orquestrador.py              decide a rota e registra eventos                         [ALTERADO]
+  capacidades.py               capacidades, classificador, calculadora, memória mínima  [ALTERADO]
+  jarvis_config.py             política e parâmetros                                    [ALTERADO]
+  provider_base.py             interface dos providers + HTTP (stdlib)                  [NOVO NOME]
+  provider_local.py            interface do modelo local (nenhum instalado)             [NOVO NOME]
+  provider_nvidia.py           NVIDIA como fallback                                     [NOVO NOME]
+  testes_orquestrador.py       13 testes automáticos
+  verificar_viabilidade_local.py   avalia se o aparelho aguenta um modelo local (só leitura)
+  memoria_capacidades.json     criado sozinho em tempo de execução (só metadados)
+
+APAGUE do GitHub/Termux (restos da estrutura antiga):
+  base.py  local.py  nvidia.py  __init__.py  providers/  server_hibrido.py
+
+TERMUX
+  pkg update && pkg install python
+  cd ~/jarvis                              # pasta com os arquivos acima
+  export NVIDIA_API_KEY="sua_chave"        # OPCIONAL: sem ela o servidor inicia e as ferramentas locais funcionam
+  termux-wake-lock                         # evita o Android suspender o servidor
+  python server.py
+  (o pacote "requests" não é mais necessário)
+
+TESTAR
+  python testes_orquestrador.py            # sem internet, sem chave
+  curl -s localhost:8080/capacidades       # onde cada tarefa é executada agora
+  curl -s -X POST localhost:8080/chat -H "Content-Type: application/json" -d '{"mensagem":"quanto é 25 vezes 18?"}'

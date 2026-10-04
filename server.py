@@ -7,7 +7,7 @@ import threading
 
 from jarvis_personalidade import montar_prompt
 from capacidades import separar_memoria
-from orquestrador import Orquestrador
+from orquestrador import ContextoLocal, Orquestrador
 
 
 # A chave da NVIDIA agora é OPCIONAL para iniciar o servidor.
@@ -31,6 +31,20 @@ orq = Orquestrador(NVIDIA_MODEL=MODEL)
 
 historico = []
 historico_lock = threading.Lock()
+
+# Contexto local separado por sessão do navegador.
+# Não é persistido e não é enviado ao provider externo por padrão.
+contextos_sessao = {}
+contextos_lock = threading.Lock()
+
+def obter_contexto_sessao(sessao_id):
+    chave = (sessao_id or "sessao-padrao").strip()[:160] or "sessao-padrao"
+    with contextos_lock:
+        if chave not in contextos_sessao:
+            contextos_sessao[chave] = ContextoLocal()
+            if len(contextos_sessao) > 100:
+                contextos_sessao.pop(next(iter(contextos_sessao)))
+        return contextos_sessao[chave]
 
 
 class JarvisServer(BaseHTTPRequestHandler):
@@ -153,6 +167,8 @@ class JarvisServer(BaseHTTPRequestHandler):
 
             # Pega a mensagem
             mensagem = dados.get("mensagem", "").strip()
+            sessao_id = str(dados.get("sessao") or "").strip()
+            contexto_sessao = obter_contexto_sessao(sessao_id)
 
             if not mensagem:
 
@@ -195,7 +211,8 @@ class JarvisServer(BaseHTTPRequestHandler):
                 imagem=dados.get("imagem"),
                 documento=dados.get("documento"),
                 historico=recente,
-                sistema=prompt
+                sistema=prompt,
+                contexto_local=contexto_sessao
             )
 
             resposta = resultado["resposta"]

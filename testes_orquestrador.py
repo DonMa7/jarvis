@@ -101,12 +101,14 @@ class Testes(unittest.TestCase):
 
     def test_fase2_contexto_semantico_e_conversao(self):
         self.assertEqual(ferramenta_conversao("10 km para milhas"), "O resultado é 6.213711922 milhas.")
+        self.assertEqual(classificar("E o que mais?"), "conversation")
+        self.assertEqual(classificar("E a 2060?"), "local_dialogue")
         o, ext, _ = montar()
         o.responder("Meu monitor é 100 Hz.")
         self.assertEqual(o.contexto_local.contexto_minimo(), "domínio: monitor; entidades: 100 hz")
         r = o.responder("e esse?")
         self.assertEqual(r["rota"], "local")
-        self.assertEqual(ext.chamadas, 0)
+        self.assertEqual(ext.chamadas, 1)
         self.assertIn("monitor", r["resposta"].lower())
 
     def test_ferramenta_local_sem_api(self):

@@ -10,7 +10,7 @@ A escolha nunca depende de um erro do modelo. Cada decisão é registrada em mem
 Uso:  orq = Orquestrador();  r = orq.responder(mensagem, imagem=..., historico=..., sistema=...)
       r = {"resposta", "rota", "capacidade", "provider", "detalhe"}
 """
-import json, os, socket, tempfile, threading, time
+import json, os, re, socket, tempfile, threading, time
 
 from jarvis_config import carregar
 from capacidades import CAPACIDADES, FERRAMENTAS, FERRAMENTAS_INTERNET, classificar, minimizar_memoria, montar_mensagem, normalizar, separar_memoria

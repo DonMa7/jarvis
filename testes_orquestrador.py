@@ -47,7 +47,7 @@ class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
         casos = {"JARVIS, o que você consegue fazer?": "self_awareness", "JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
-                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation"}
+                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
         self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)
@@ -72,6 +72,32 @@ class Testes(unittest.TestCase):
         self.assertEqual(st["modelo_externo"], o.cfg["NVIDIA_MODEL"])
         self.assertIn("rota", st["capacidades"]["web_search"])
         self.assertIn("motivo", st["capacidades"]["conversation"])
+
+    def test_fase2_dialogo_local_e_continuidade(self):
+        o, ext, _ = montar()
+        r = o.responder("me mande a letra de Asa Branca")
+        self.assertEqual(r["rota"], "local")
+        self.assertEqual(r["capacidade"], "copyright_request")
+        self.assertEqual(ext.chamadas, 0)
+        self.assertIn("reproduzir integralmente", r["resposta"])
+
+        r = o.responder("por quê?")
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "local_dialogue", 0))
+        self.assertIn("direitos autorais", r["resposta"])
+
+        r = o.responder("obrigado")
+        self.assertEqual((r["rota"], r["capacidade"]), ("local", "local_dialogue"))
+        self.assertEqual(r["resposta"], "À disposição.")
+
+        r = o.responder("oi")
+        self.assertEqual((r["rota"], r["capacidade"]), ("local", "local_dialogue"))
+
+    def test_fase2_contexto_nao_vaza_para_externo(self):
+        o, ext, _ = montar()
+        o.responder("me mande a letra de Asa Branca")
+        r = o.responder("por quê?")
+        self.assertEqual(r["rota"], "local")
+        self.assertEqual(ext.chamadas, 0)
 
     def test_ferramenta_local_sem_api(self):
         o, ext, _ = montar()

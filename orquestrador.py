@@ -101,7 +101,7 @@ class Orquestrador:
             else: onde = "externo (%s)" % prv.nome
             caps[nome] = {"descricao": c["desc"], "onde": onde}
         return {"modelo_local": self.local.disponivel(), "provider_externo": prv.nome if prv else None, "provider_externo_pronto": bool(prv and prv.disponivel()),
-                "capacidades": caps, "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA")}}
+                "capacidades": caps, "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA", "PERMITIR_HISTORICO_EXTERNO")}}
 
     # ---------- fluxo principal ----------
     def responder(self, mensagem, imagem=None, documento=None, historico=None, sistema=None):
@@ -145,8 +145,10 @@ class Orquestrador:
         if prv.requer_internet and not self.tem_internet(prv.host): return fim(M_OFFLINE, "offline", resultado_local + "+offline", False, prv.nome, prv.nome, "sem internet")
 
         enviar = completo if self.cfg["PERMITIR_MEMORIA_EXTERNA"] else self._juntar(texto, documento)   # política: sem memória pessoal na NVIDIA
+        # Privacidade: o provider externo recebe o histórico somente quando explicitamente permitido.
+        historico_externo = historico if self.cfg["PERMITIR_HISTORICO_EXTERNO"] else []
         try:
-            resp = prv.generate(enviar, historico, sistema, imagem=imagem)
+            resp = prv.generate(enviar, historico_externo, sistema, imagem=imagem)
         except ProviderErro as e:
             if e.offline: return fim(M_OFFLINE, "offline", resultado_local + "+offline", False, prv.nome, prv.nome, str(e))
             return fim(M_ERRO, "erro", resultado_local + "+external_error_%s" % (e.status or "x"), False, prv.nome, prv.nome, "%s (status %s)" % (e, e.status))

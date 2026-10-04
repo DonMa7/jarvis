@@ -176,7 +176,7 @@ def classificar(texto, tem_imagem=False, tem_documento=False):
     if ferramenta_conversao(texto) is not None: return "unit_conversion"
     if pedido_reproducao_integral(texto): return "copyright_request"
     n = normalizar(texto)
-    if _LOCAL_DIALOGUE.fullmatch(n): return "local_dialogue"
+    if _LOCAL_DIALOGUE.fullmatch(n) or re.match(r"^(e |mas e |isso |isto |esse |essa |ele |ela |eles |elas )", n): return "local_dialogue"
     if texto.count("```") >= 2 and len(texto) > 300: return "complex_code_analysis"
     for cap, rx in _REGRAS:
         if re.search(rx, n): return cap

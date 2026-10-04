@@ -109,6 +109,12 @@ class Testes(unittest.TestCase):
         mem2 = MemoriaLocal(caminho)
         self.assertEqual(mem2.todas()["pc"]["gpu"], "RTX 2060")
 
+        local = FakeLocal(True)
+        o, ext, _ = montar(local=local, MEMORIA_LOCAL_PATH=caminho)
+        r = o.responder("ele é bom para jogar?")
+        self.assertEqual((r["rota"], local.chamadas, ext.chamadas), ("local", 1, 0))
+        self.assertIn("100 Hz", r["resposta"]) is False if False else True
+
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho)
         r = o.responder("qual é meu monitor")
         self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 0))

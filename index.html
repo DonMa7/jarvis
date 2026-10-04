@@ -1016,7 +1016,22 @@ body.painel-aberto #btn-painel {
 const API_CHAT = "https://flickr-suspended-launch-joseph.trycloudflare.com/chat";   // servidor da IA
 const API_VOZ  = null;                                      // voz reproduzida pelo próprio navegador
 const CHAT_STORAGE = "jarvis_chat";
+const SESSAO_KEY = "jarvis_sessao";
 const MAX_HISTORICO = 100;
+
+function obterSessao() {
+  try {
+    let id = localStorage.getItem(SESSAO_KEY);
+    if (!id) {
+      id = "j-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
+      localStorage.setItem(SESSAO_KEY, id);
+    }
+    return id;
+  } catch (e) {
+    return "j-padrao";
+  }
+}
+const SESSAO_JARVIS = obterSessao();
 const PAUSA_FRASE_MS = 350;   // pausa entre frases faladas (0 desativa); "?" e "!" ganham +100 ms
 
 const $ = id => document.getElementById(id);
@@ -1100,7 +1115,7 @@ async function enviarMensagem() {
     const resposta = await fetch(API_CHAT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mensagem: comMemoria(texto), imagem: imagemAnexada || null })
+      body: JSON.stringify({ mensagem: comMemoria(texto), imagem: imagemAnexada || null, sessao: SESSAO_JARVIS })
     });
     const dados = await resposta.json();
     setStatus(true, Math.round(performance.now() - t0));

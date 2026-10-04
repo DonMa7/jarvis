@@ -436,7 +436,7 @@ input.addEventListener("keydown", e => {
 });
 
 window.addEventListener("beforeunload", () => {
-  navigator.sendBeacon(API_VOZ + "/parar");
+  if (SINTETIZADOR) SINTETIZADOR.cancel();
 });
 </script>
 <script>
@@ -719,7 +719,11 @@ async function sonda(url) {
   catch (e) { return false; } finally { clearTimeout(t); }
 }
 async function verificarIA() { const ok = await sonda(API_CHAT); setStatus(ok); return ok; }
-async function verificarVoz() { const ok = await sonda(API_VOZ + "/"); setLed("voz", ok ? "o" : "x"); return ok; }
+async function verificarVoz() {
+  const ok = !!SINTETIZADOR;
+  setLed("voz", ok ? "o" : "x");
+  return ok;
+}
 
 // Informações reais do navegador; o que não existir fica "N/A" (nada é inventado)
 function coletarSistema() {

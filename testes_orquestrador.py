@@ -206,7 +206,7 @@ class Testes(unittest.TestCase):
     def _servidor(self, orq):
         os.environ.pop("NVIDIA_API_KEY", None)
         import server
-        server.orq = orq; server.historico.clear()
+        server.orq = orq; server.historico.clear(); server.contextos_sessao.clear()
         srv = ThreadingHTTPServer(("127.0.0.1", 0), server.JarvisServer); self.addCleanup(srv.shutdown); threading.Thread(target=srv.serve_forever, daemon=True).start()
         porta = srv.server_address[1]
         def chamar(metodo, caminho, corpo=None, bruto=None):
@@ -222,6 +222,20 @@ class Testes(unittest.TestCase):
         st, h, d = chamar("POST", "/chat", {"mensagem": "quanto é 7 vezes 6"}); self.assertEqual((st, list(d), h["Access-Control-Allow-Origin"]), (200, ["resposta"], "*")); self.assertIn("42", d["resposta"])
         self.assertEqual(chamar("POST", "/chat", {"mensagem": ""})[0], 400); self.assertEqual(chamar("POST", "/chat", bruto="{nao e json")[0], 400)
         self.assertEqual(chamar("POST", "/outra", {"mensagem": "x"})[0], 404); self.assertEqual(chamar("GET", "/capacidades")[0], 200)
+
+    def test_server_isola_contexto_por_sessao(self):
+        o, ext, _ = montar()
+        server, chamar = self._servidor(o)
+
+        st, _, _ = chamar("POST", "/chat", {"mensagem": "me mande a letra de Asa Branca", "sessao": "A"})
+        self.assertEqual(st, 200)
+
+        r_b = chamar("POST", "/chat", {"mensagem": "por quê?", "sessao": "B"})[2]
+        self.assertIn("resposta anterior", r_b["resposta"])
+
+        r_a = chamar("POST", "/chat", {"mensagem": "por quê?", "sessao": "A"})[2]
+        self.assertIn("direitos autorais", r_a["resposta"])
+        self.assertEqual(ext.chamadas, 0)
 
     def test_server_historico_curto(self):
         o, ext, _ = montar(MAX_HISTORICO=4); server, chamar = self._servidor(o)

@@ -13,7 +13,7 @@ Uso:  orq = Orquestrador();  r = orq.responder(mensagem, imagem=..., historico=.
 import json, os, socket, tempfile, threading, time
 
 from jarvis_config import carregar
-from capacidades import CAPACIDADES, FERRAMENTAS, FERRAMENTAS_INTERNET, classificar, minimizar_memoria, montar_mensagem, separar_memoria
+from capacidades import CAPACIDADES, FERRAMENTAS, FERRAMENTAS_INTERNET, classificar, minimizar_memoria, montar_mensagem, normalizar, separar_memoria
 from provider_base import ProviderErro
 from provider_local import criar_local
 from provider_nvidia import NvidiaProvider
@@ -27,6 +27,71 @@ M_SEM_CAP = "Senhor, nenhum dos serviços externos configurados consegue realiza
 M_BLOQ    = "Senhor, para isso eu precisaria enviar %s a um serviço externo, e esse envio está desativado por política de privacidade. Para autorizar, ative %s na configuração."
 M_ERRO    = "Senhor, o serviço externo não respondeu como esperado. Se o senhor repetir o pedido, tentarei novamente."
 M_LOCAL_X = "Senhor, não consegui concluir essa tarefa com os meus recursos locais."
+
+
+class ContextoLocal:
+    """Memória de curto prazo em RAM. Não grava texto em arquivo e não envia histórico ao provider."""
+
+    def __init__(self, maximo=8):
+        self.maximo = max(1, int(maximo))
+        self.eventos = []
+        self.lock = threading.Lock()
+
+    def atualizar(self, usuario, resposta, resultado, capacidade, rota, detalhe=None):
+        evento = {
+            "usuario": usuario or "",
+            "resposta": resposta or "",
+            "resultado": resultado or "",
+            "capacidade": capacidade or "",
+            "rota": rota or "",
+            "detalhe": detalhe or "",
+        }
+        with self.lock:
+            self.eventos.append(evento)
+            del self.eventos[:-self.maximo]
+
+    @property
+    def ultimo(self):
+        with self.lock:
+            return dict(self.eventos[-1]) if self.eventos else None
+
+    @staticmethod
+    def eh_followup_curto(texto):
+        n = " ".join((texto or "").strip().lower().split())
+        return n in {
+            "por que?", "porquê?", "por quê?", "porque?", "e por que?", "e por quê?",
+            "como assim?", "como assim isso?", "explique.", "explique", "explica",
+            "continue", "continua", "e depois?", "e depois"
+        }
+
+    def resolver_followup(self, texto):
+        if not self.eh_followup_curto(texto):
+            return None
+        u = self.ultimo
+        if not u:
+            return "Não tenho uma resposta anterior suficiente para determinar a que o senhor se refere."
+
+        resultado = u["resultado"]
+        rota = u["rota"]
+        detalhe = u["detalhe"] or ""
+
+        if resultado == "copyright_refusal":
+            return (
+                "Porque não posso reproduzir integralmente uma obra protegida por direitos autorais. "
+                "Posso resumir a obra, explicar o significado ou comentar um trecho curto."
+            )
+        if "blocked_policy" in resultado or "PERMITIR_ENVIO_DE_" in detalhe:
+            return "Porque essa tarefa exigiria enviar dados a um serviço externo, e esse envio está bloqueado pela política de privacidade atual."
+        if "provider_unsupported" in resultado:
+            return "Porque o serviço disponível não oferece a capacidade necessária para essa tarefa."
+        if "offline" in resultado or rota == "offline":
+            return "Porque a tarefa depende de um serviço externo que está indisponível no momento."
+        if "external_ok" in resultado or rota == "externo":
+            return "Porque o núcleo local não realizou essa tarefa e o provider externo foi usado como fallback."
+        if u["capacidade"] == "self_awareness":
+            return "Porque minha resposta anterior descrevia as capacidades que estão disponíveis neste momento."
+
+        return "Estou me referindo à resposta imediatamente anterior. Posso detalhar o ponto específico que o senhor deseja esclarecer."
 
 
 class Registro:
@@ -62,6 +127,7 @@ class Orquestrador:
         self._internet = internet or self._testar_tcp
         self._cache_net = (0.0, False)
         self.registro = Registro(log_path or os.path.join(os.path.dirname(os.path.abspath(__file__)), "memoria_capacidades.json"), self.cfg["LOG_MAX_EVENTOS"])
+        self.contexto_local = ContextoLocal()
 
     # ---------- utilidades ----------
     @staticmethod
@@ -99,6 +165,8 @@ class Orquestrador:
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "frontend", "motivo": "executada pelo site"}
         if nome == "self_awareness":
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "nucleo_local", "motivo": "diagnóstico determinístico do orquestrador"}
+        if nome in ("local_dialogue", "copyright_request"):
+            return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "nucleo_local", "motivo": "regra local determinística"}
         if self.local.disponivel() and self.local.suporta(nome) and dado == "texto":
             return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "modelo_local", "motivo": "modelo local declara suporte"}
         if nome in FERRAMENTAS:
@@ -194,9 +262,36 @@ class Orquestrador:
         cap = classificar(texto, bool(imagem), bool(documento))
         def fim(resposta, rota, resultado, sucesso, provider=None, fallback=None, detalhe=None):
             self.registro.evento(cap, resultado, sucesso, fallback=fallback, ms=(time.time() - t0) * 1000, has_image=bool(imagem), has_document=bool(documento))
+            self.contexto_local.atualizar(texto, resposta, resultado, cap, rota, detalhe)
             return {"resposta": resposta, "rota": rota, "capacidade": cap, "provider": provider, "detalhe": detalhe}
 
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
+
+        # Fase 2: inteligência local antes de modelo, internet ou NVIDIA.
+        # Pedidos de reprodução integral e continuidade curta não precisam de API.
+        if cap == "copyright_request":
+            resp = (
+                "Não posso reproduzir integralmente essa obra. "
+                "Posso resumir a música, explicar o significado, comentar o contexto "
+                "ou analisar um trecho curto fornecido por você."
+            )
+            return fim(resp, "local", "copyright_refusal", True, "nucleo")
+
+        if cap == "local_dialogue":
+            resp = self.contexto_local.resolver_followup(texto)
+            if not resp:
+                n = normalizar(texto)
+                if n in {"obrigado", "obrigada", "valeu"}:
+                    resp = "À disposição."
+                elif n in {"ok", "certo", "entendi", "beleza"}:
+                    resp = "Perfeitamente."
+                elif n in {"oi", "ola", "bom dia", "boa tarde", "boa noite"}:
+                    import datetime
+                    h = datetime.datetime.now().hour
+                    resp = "Bom dia." if h < 12 else "Boa tarde." if h < 18 else "Boa noite."
+            if resp:
+                return fim(resp, "local", "local_dialogue_ok", True, "nucleo")
+            cap = "conversation"
 
         # Autoconsciência: diagnóstico determinístico, sem enviar a pergunta à NVIDIA.
         if cap == "self_awareness":

@@ -361,7 +361,7 @@ class Orquestrador:
         # Consultas simples que podem ser resolvidas com fatos persistentes não
         # precisam sair do aparelho nem chegar ao provider externo.
         if self.memoria_local:
-            resposta_memoria = self.memoria_local.resposta_contextual(texto)
+            resposta_memoria = self.memoria_local.resposta_contextual(texto, ctx.contexto_minimo())
             if resposta_memoria:
                 cap = "persistent_memory"
                 return fim(resposta_memoria, "local", "memory_contextual_ok", True, "nucleo")

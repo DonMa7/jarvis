@@ -47,7 +47,7 @@ class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
         casos = {"JARVIS, o que você consegue fazer?": "self_awareness", "JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
-                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request"}
+                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request", "queria a letra de Asa Branca": "copyright_request", "gostaria da letra de Asa Branca": "copyright_request"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
         self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)

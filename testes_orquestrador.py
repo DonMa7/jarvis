@@ -133,7 +133,7 @@ class Testes(unittest.TestCase):
         o, ext, _ = montar(); r = o.responder("Como está o dia?"); self.assertEqual((r["rota"], ext.chamadas), ("externo", 1)); self.assertTrue(r["resposta"].startswith("EXTERNO"))
 
     def test_erro_local_cai_para_externo(self):
-        loc = FakeLocal(True, quebra=True); o, ext, log = montar(local=loc); r = o.responder("Olá")
+        loc = FakeLocal(True, quebra=True); o, ext, log = montar(local=loc); r = o.responder("Qual é o estado atual do núcleo?")
         self.assertEqual((r["rota"], ext.chamadas), ("externo", 1)); self.assertIn("local_error+external_ok", json.load(open(log))["eventos"][-1]["resultado"])
 
     def test_imagem_e_documento_exigem_permissao(self):
@@ -146,7 +146,7 @@ class Testes(unittest.TestCase):
         o, ext, _ = montar(PERMITIR_ENVIO_DE_DOCUMENTOS=True); o.responder("Resuma", documento="texto"); self.assertIn("[Documento]", ext.ultimo[0])
 
     def test_offline_e_falhas_do_provider(self):
-        o, ext, _ = montar(internet=False); r = o.responder("Olá"); self.assertEqual((r["rota"], ext.chamadas, r["resposta"]), ("offline", 0, M_OFFLINE)); self.assertEqual(o.responder("quanto é 2+2")["rota"], "ferramenta")
+        o, ext, _ = montar(internet=False); r = o.responder("Qual é o estado atual do núcleo?"); self.assertEqual((r["rota"], ext.chamadas, r["resposta"]), ("offline", 0, M_OFFLINE)); self.assertEqual(o.responder("quanto é 2+2")["rota"], "ferramenta")
         self.assertEqual(montar(ext=FakeExterno(erro=ProviderErro("x", offline=True)))[0].responder("Olá")["rota"], "offline")
         r = montar(ext=FakeExterno(erro=ProviderErro("x", status=500)))[0].responder("Olá"); self.assertEqual(r["rota"], "erro"); self.assertIn("500", r["detalhe"])
         o, ext, _ = montar(API_FALLBACK=False); r = o.responder("Olá"); self.assertEqual((r["rota"], ext.chamadas), ("bloqueado", 0)); self.assertIn("API_FALLBACK", r["resposta"])

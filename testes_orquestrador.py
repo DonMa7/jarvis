@@ -181,7 +181,7 @@ class Testes(unittest.TestCase):
         for i in range(5): chamar("POST", "/chat", {"mensagem": "pergunta %d" % i})
         self.assertLessEqual(len(server.historico), 4)
 
-    def test_server_inicia_e_responde_sem_chave_da_nvidia(self):(self):
+    def test_server_inicia_e_responde_sem_chave_da_nvidia(self):
         os.environ.pop("NVIDIA_API_KEY", None)
         o = Orquestrador(cfg=carregar(arquivo="/nao/existe.json", ambiente={}), local=FakeLocal(False), internet=lambda h: True, log_path=os.path.join(tempfile.mkdtemp(), "m.json"))
         server, chamar = self._servidor(o)

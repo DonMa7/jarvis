@@ -143,7 +143,8 @@ class _ResultadosBusca(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag != "a": return
         a = dict(attrs)
-        if "result__a" in a.get("class", "").split():
+        cls = a.get("class", "")
+        if "result__a" in cls.split():
             self._item = [a.get("href", ""), ""]
             self._capturando = True
 
@@ -154,31 +155,99 @@ class _ResultadosBusca(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "a" and self._capturando and self._item:
             link, titulo = self._item
-            self.itens.append((html.unescape(link), re.sub(r"\s+", " ", html.unescape(titulo)).strip()))
+            titulo = re.sub(r"\\s+", " ", html.unescape(titulo)).strip()
+            if link and titulo:
+                self.itens.append((html.unescape(link), titulo))
             self._item = None
             self._capturando = False
 
-def ferramenta_busca_web(texto):
-    """Busca pública simples via DuckDuckGo HTML, sem chave/API externa."""
-    n = normalizar(texto)
-    n = re.sub(r"^(jarvis[, ]*)?(pesquis\w*|procure|busque|buscar)\s*(na internet|na web|online)?\s*", "", n).strip(" ?.!:;")
-    if not n: return "Senhor, preciso de um termo para realizar a pesquisa."
-    url = "https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": n, "kl": "br-pt"})
-    req = urllib.request.Request(url, headers={"User-Agent": "JARVIS/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=8) as r:
-            pagina = r.read().decode("utf-8", errors="replace")
-    except Exception:
-        return "Senhor, a busca na internet está indisponível neste momento."
-    parser = _ResultadosBusca()
+
+class _ResultadosLite(HTMLParser):
+    """Parser de fallback para o DuckDuckGo Lite."""
+    def __init__(self):
+        super().__init__()
+        self.itens = []
+        self._link = None
+        self._titulo = ""
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "a": return
+        a = dict(attrs)
+        href = a.get("href", "")
+        if href and ("result-link" in a.get("class", "") or "uddg=" in href):
+            self._link = href
+            self._titulo = ""
+
+    def handle_data(self, data):
+        if self._link is not None:
+            self._titulo += data
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._link is not None:
+            titulo = re.sub(r"\\s+", " ", html.unescape(self._titulo)).strip()
+            if titulo and len(titulo) > 2:
+                self.itens.append((html.unescape(self._link), titulo))
+            self._link = None
+            self._titulo = ""
+
+
+def _buscar_duckduckgo(url, parser_cls):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (Linux; Android 8.1; JARVIS/1.0) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    })
+    with urllib.request.urlopen(req, timeout=10) as r:
+        pagina = r.read().decode("utf-8", errors="replace")
+    parser = parser_cls()
     parser.feed(pagina)
-    if not parser.itens:
+    return parser.itens
+
+
+def ferramenta_busca_web(texto):
+    """Busca pública via DuckDuckGo HTML, com fallback para a versão Lite."""
+    n = normalizar(texto)
+    n = re.sub(r"^(jarvis[, ]*)?(pesquis\\w*|procure|busque|buscar)\\s*(na internet|na web|online)?\\s*", "", n).strip(" ?.!:;")
+    if not n:
+        return "Senhor, preciso de um termo para realizar a pesquisa."
+
+    base = urllib.parse.urlencode({"q": n, "kl": "br-pt"})
+
+    try:
+        itens = _buscar_duckduckgo("https://html.duckduckgo.com/html/?" + base, _ResultadosBusca)
+    except Exception:
+        itens = []
+
+    if not itens:
+        try:
+            itens = _buscar_duckduckgo("https://lite.duckduckgo.com/lite/?" + base, _ResultadosLite)
+        except Exception:
+            itens = []
+
+    if not itens:
         return "Senhor, não encontrei resultados para essa pesquisa."
+
     linhas = ["Encontrei estas referências na internet:"]
-    for i, (link, titulo) in enumerate(parser.itens[:5], 1):
-        if link.startswith("//"): link = "https:" + link
-        linhas.append(str(i) + ". " + titulo + " — " + link)
-    return "\n".join(linhas)
+    vistos = set()
+    numero = 0
+    for link, titulo in itens:
+        if link.startswith("//"):
+            link = "https:" + link
+        if "duckduckgo.com/l/?" in link and "uddg=" in link:
+            try:
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
+                link = qs.get("uddg", [link])[0]
+            except Exception:
+                pass
+        chave = link.strip()
+        if not chave or chave in vistos:
+            continue
+        vistos.add(chave)
+        numero += 1
+        linhas.append(str(numero) + ". " + titulo + " — " + link)
+        if numero >= 5:
+            break
+    return "\\n".join(linhas) if numero else "Senhor, não encontrei resultados para essa pesquisa."
 
 FERRAMENTAS = {"basic_math": ferramenta_matematica}
 # Ferramentas que usam internet sem IA. Etapa 3 da prioridade.

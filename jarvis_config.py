@@ -15,7 +15,8 @@ PADRAO = {
     "AVISAR_EM_TEXTO_SIMPLES": False,         # True = avisa também em conversa/texto comum
     "PERMITIR_ENVIO_DE_IMAGEM": False,
     "PERMITIR_ENVIO_DE_DOCUMENTOS": False,
-    "PERMITIR_MEMORIA_EXTERNA": True,         # True = envia à NVIDIA SÓ as memórias relevantes à pergunta; False = nunca envia memória
+    "PERMITIR_MEMORIA_EXTERNA": False,        # False = memória pessoal nunca é enviada ao provider externo por padrão
+    "PERMITIR_HISTORICO_EXTERNO": False,      # False = histórico da conversa nunca é enviado ao provider externo por padrão
     # ---- providers ----
     "PROVIDER_EXTERNO": "nvidia",
     "LOCAL_MODEL_URL": "",                    # vazio = sem modelo local (estado atual). Ex.: http://127.0.0.1:8088

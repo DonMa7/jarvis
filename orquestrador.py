@@ -164,9 +164,21 @@ class Orquestrador:
         prv, caps = self._provider(), {}
         for nome, c in CAPACIDADES.items():
             d = self.diagnosticar_capacidade(nome)
+            rotulos = {
+                "modelo_local": "modelo local",
+                "ferramenta_local": "ferramenta local",
+                "internet": "ferramenta de internet",
+                "externo": "externo (%s)" % (d.get("provider") or prv.nome if prv else "externo"),
+                "frontend": "frontend",
+                "nucleo_local": "núcleo local",
+                "offline": "offline",
+                "bloqueado": "bloqueado",
+                "indisponivel": "indisponível",
+            }
             caps[nome] = {
                 "descricao": c["desc"],
-                "onde": d["rota"],
+                "onde": rotulos.get(d["rota"], d["rota"]),
+                "rota": d["rota"],
                 "disponivel": d["disponivel"],
                 "motivo": d["motivo"],
             }

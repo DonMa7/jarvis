@@ -7,6 +7,7 @@ dados: o que sai do aparelho se um provider EXTERNO for usado: texto | imagem | 
 aviso: avisar o usuário antes de usar o serviço externo
 """
 import html, re, unicodedata, urllib.parse, urllib.request
+from html.parser import HTMLParser
 
 CAPACIDADES = {
     # --- locais / frontend ---
@@ -132,35 +133,53 @@ def ferramenta_matematica(texto):
     except (ValueError, ZeroDivisionError, OverflowError): return None
 
 
+class _ResultadosBusca(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.itens = []
+        self._item = None
+        self._capturando = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "a": return
+        a = dict(attrs)
+        if "result__a" in a.get("class", "").split():
+            self._item = [a.get("href", ""), ""]
+            self._capturando = True
+
+    def handle_data(self, data):
+        if self._capturando and self._item:
+            self._item[1] += data
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self._capturando and self._item:
+            link, titulo = self._item
+            self.itens.append((html.unescape(link), re.sub(r"\s+", " ", html.unescape(titulo)).strip()))
+            self._item = None
+            self._capturando = False
+
 def ferramenta_busca_web(texto):
     """Busca pública simples via DuckDuckGo HTML, sem chave/API externa."""
     n = normalizar(texto)
-    n = re.sub(r"^(jarvis[, ]*)?(pesquise|pesquisa|procure|busque|buscar|pesquisa na internet)\s*(na internet)?\s*", "", n).strip(" ?.!:;")
-    n = re.sub(r"\b(na internet|na web|online)\b", "", n).strip(" ?.!:;")
-    if not n: return None
+    n = re.sub(r"^(jarvis[, ]*)?(pesquis\w*|procure|busque|buscar)\s*(na internet|na web|online)?\s*", "", n).strip(" ?.!:;")
+    if not n: return "Senhor, preciso de um termo para realizar a pesquisa."
     url = "https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": n, "kl": "br-pt"})
     req = urllib.request.Request(url, headers={"User-Agent": "JARVIS/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=8) as r:
             pagina = r.read().decode("utf-8", errors="replace")
     except Exception:
-        return None
-    blocos = re.findall(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', pagina, flags=re.I|re.S)
-    if not blocos: return None
+        return "Senhor, a busca na internet está indisponível neste momento."
+    parser = _ResultadosBusca()
+    parser.feed(pagina)
+    if not parser.itens:
+        return "Senhor, não encontrei resultados para essa pesquisa."
     linhas = ["Encontrei estas referências na internet:"]
-    for i, item in enumerate(blocos[:5], 1):
-        link, titulo = item
-        titulo = re.sub(r"<.*?>", "", titulo)
-        titulo = html.unescape(titulo).strip()
-        link = html.unescape(link)
+    for i, (link, titulo) in enumerate(parser.itens[:5], 1):
         if link.startswith("//"): link = "https:" + link
         linhas.append(str(i) + ". " + titulo + " — " + link)
     return "\n".join(linhas)
 
-FERRAMENTAS = {"basic_math": ferramenta_matematica, "web_search": ferramenta_busca_web}
-FERRAMENTAS_INTERNET = {}
-
-# Ferramentas que precisam de INTERNET mas não de IA (ex.: clima, busca, cotação). Etapa 3 da prioridade
-# LOCAL > FERRAMENTA > INTERNET > NVIDIA. Vazio por enquanto: nada foi inventado. Para adicionar:
-#   FERRAMENTAS_INTERNET["conversation"] = minha_funcao   # função(texto) -> resposta | None (None = não sei, segue para a NVIDIA)
-FERRAMENTAS_INTERNET = {}
+FERRAMENTAS = {"basic_math": ferramenta_matematica}
+# Ferramentas que usam internet sem IA. Etapa 3 da prioridade.
+FERRAMENTAS_INTERNET = {"web_search": ferramenta_busca_web}

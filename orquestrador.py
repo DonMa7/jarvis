@@ -404,14 +404,6 @@ class Orquestrador:
         memoria_estruturada = self.memoria_local.contexto(texto) if self.memoria_local else ""
         self.memoria_local.aprender(texto) if self.memoria_local else None
 
-        # Consultas simples que podem ser resolvidas com fatos persistentes não
-        # precisam sair do aparelho nem chegar ao provider externo.
-        if self.memoria_local:
-            resposta_memoria = self.memoria_local.resposta_contextual(texto, ctx.contexto_minimo())
-            if resposta_memoria:
-                cap = "persistent_memory"
-                return fim(resposta_memoria, "local", "memory_contextual_ok", True, "nucleo")
-
         # Fase 2.2: memória estruturada persistente. O dado fica no J7 e só é
         # anexado a um modelo quando ele estiver rodando localmente ou quando
         # a política permitir memória externa.
@@ -468,6 +460,13 @@ class Orquestrador:
                     local_mensagem = "\n\n".join(blocos) + "\n\nPergunta atual: " + texto
                 return fim(self.local.generate(local_mensagem, historico, sistema), "local", "local_ok", True, self.local.nome)
             except Exception as e: local_erro, detalhe_local = True, "local: %s" % e
+        # Fallback conversacional sem modelo local: só chega aqui depois de dar
+        # ao modelo local a primeira oportunidade de interpretar o contexto.
+        if self.memoria_local:
+            resposta_memoria = self.memoria_local.resposta_contextual(texto, ctx.contexto_minimo())
+            if resposta_memoria:
+                return fim(resposta_memoria, "local", "memory_contextual_ok", True, "nucleo")
+
         resultado_local = "local_error" if local_erro else ("local_insufficient" if self.local.disponivel() else "local_unavailable")
 
         # 2) FERRAMENTA: determinística, instantânea e sem rede

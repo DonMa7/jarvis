@@ -4,7 +4,7 @@ import http.client, json, os, tempfile, threading, time, unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 
 import capacidades
-from capacidades import classificar, minimizar_memoria, separar_memoria
+from capacidades import classificar, ferramenta_conversao, minimizar_memoria, separar_memoria
 from jarvis_config import carregar
 from orquestrador import M_OFFLINE, M_SEM_PRV, Orquestrador
 from provider_base import Provider, ProviderErro
@@ -47,7 +47,7 @@ class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
         casos = {"JARVIS, o que você consegue fazer?": "self_awareness", "JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
-                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request", "queria a letra de Asa Branca": "copyright_request", "gostaria da letra de Asa Branca": "copyright_request"}
+                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request", "queria a letra de Asa Branca": "copyright_request", "gostaria da letra de Asa Branca": "copyright_request", "10 km para milhas": "unit_conversion"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
         self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)
@@ -98,6 +98,16 @@ class Testes(unittest.TestCase):
         r = o.responder("por quê?")
         self.assertEqual(r["rota"], "local")
         self.assertEqual(ext.chamadas, 0)
+
+    def test_fase2_contexto_semantico_e_conversao(self):
+        self.assertEqual(ferramenta_conversao("10 km para milhas"), "O resultado é 0.00621371192 mi.")
+        o, ext, _ = montar()
+        o.responder("Meu monitor é 100 Hz.")
+        self.assertEqual(o.contexto_local.contexto_minimo(), "domínio: monitor; entidades: 100 hz")
+        r = o.responder("e esse?")
+        self.assertEqual(r["rota"], "local")
+        self.assertEqual(ext.chamadas, 0)
+        self.assertIn("monitor", r["resposta"].lower())
 
     def test_ferramenta_local_sem_api(self):
         o, ext, _ = montar()
@@ -206,7 +216,7 @@ class Testes(unittest.TestCase):
     def _servidor(self, orq):
         os.environ.pop("NVIDIA_API_KEY", None)
         import server
-        server.orq = orq; server.historico.clear(); server.contextos_sessao.clear()
+        server.orq = orq; server.historico.clear(); server.historicos_sessao.clear(); server.contextos_sessao.clear()
         srv = ThreadingHTTPServer(("127.0.0.1", 0), server.JarvisServer); self.addCleanup(srv.shutdown); threading.Thread(target=srv.serve_forever, daemon=True).start()
         porta = srv.server_address[1]
         def chamar(metodo, caminho, corpo=None, bruto=None):
@@ -236,6 +246,16 @@ class Testes(unittest.TestCase):
         r_a = chamar("POST", "/chat", {"mensagem": "por quê?", "sessao": "A"})[2]
         self.assertIn("direitos autorais", r_a["resposta"])
         self.assertEqual(ext.chamadas, 0)
+
+    def test_server_historico_externo_isolado_por_sessao(self):
+        o, ext, _ = montar(PERMITIR_HISTORICO_EXTERNO=True)
+        server, chamar = self._servidor(o)
+        chamar("POST", "/chat", {"mensagem": "Meu assunto é monitor 100 Hz.", "sessao": "A"})
+        chamar("POST", "/chat", {"mensagem": "Meu assunto é RTX 2060.", "sessao": "B"})
+        chamar("POST", "/chat", {"mensagem": "E esse?", "sessao": "A"})
+        # A lista enviada ao provider deve conter apenas o histórico da sessão A.
+        self.assertTrue(ext.hist)
+        self.assertEqual(ext.hist[0]["content"], "Meu assunto é monitor 100 Hz.")
 
     def test_server_historico_curto(self):
         o, ext, _ = montar(MAX_HISTORICO=4); server, chamar = self._servidor(o)

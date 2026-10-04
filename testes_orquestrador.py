@@ -46,12 +46,32 @@ def montar(local=None, ext=None, internet=True, **cfg):
 class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
-        casos = {"JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
+        casos = {"JARVIS, o que você consegue fazer?": "self_awareness", "JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
                  "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
         self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)
         self.assertNotIn("web_search", capacidades.FERRAMENTAS)
+
+    def test_diagnostico_e_autoconsciencia(self):
+        o, ext, _ = montar()
+        d = o.diagnosticar("JARVIS, pesquise na internet o preço atual")
+        self.assertEqual((d["capacidade"], d["rota"], d["disponivel"]), ("web_search", "internet", True))
+        self.assertTrue(d["requer_internet"])
+        self.assertEqual(d["fallback"], "nvidia")
+
+        d = o.diagnosticar("quanto é 25 vezes 18")
+        self.assertEqual((d["capacidade"], d["rota"]), ("basic_math", "ferramenta_local"))
+
+        r = o.responder("JARVIS, o que você consegue fazer?")
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("ferramenta", "self_awareness", 0))
+        self.assertIn("pesquisa na internet", r["resposta"])
+        self.assertIn("provider externo", r["resposta"].lower())
+
+        st = o.status()
+        self.assertEqual(st["modelo_externo"], o.cfg["NVIDIA_MODEL"])
+        self.assertIn("rota", st["capacidades"]["web_search"])
+        self.assertIn("motivo", st["capacidades"]["conversation"])
 
     def test_ferramenta_local_sem_api(self):
         o, ext, _ = montar()
@@ -74,13 +94,15 @@ class Testes(unittest.TestCase):
             self.assertIn("WEB: resultado", ext.ultimo[0])
             self.assertEqual(ext.hist, [])
         finally:
-            capacidades.FERRAMENTAS_INTERNET.pop("web_search", None)
+            capacidades.FERRAMENTAS_INTERNET["web_search"] = capacidades.ferramenta_busca_web
         # 3) INTERNET (sem IA) antes da NVIDIA
         capacidades.FERRAMENTAS_INTERNET["conversation"] = lambda t: "WEB: ok"
         try:
             o, ext, _ = montar(); r = o.responder("Como está o dia?"); self.assertEqual((r["rota"], ext.chamadas), ("internet", 0))
             o, ext, _ = montar(internet=False); self.assertEqual(o.responder("Como está o dia?")["rota"], "offline")                           # sem internet: nem tool nem NVIDIA
-        finally: capacidades.FERRAMENTAS_INTERNET.clear()
+        finally:
+            capacidades.FERRAMENTAS_INTERNET.clear()
+            capacidades.FERRAMENTAS_INTERNET["web_search"] = capacidades.ferramenta_busca_web
         # 4) NVIDIA por último
         o, ext, _ = montar(); r = o.responder("Como está o dia?"); self.assertEqual((r["rota"], ext.chamadas), ("externo", 1)); self.assertTrue(r["resposta"].startswith("EXTERNO"))
 
@@ -218,7 +240,7 @@ class Testes(unittest.TestCase):
             self.assertNotIn("segredo", ext.ultimo[0])
             self.assertEqual(ext.hist, [])
         finally:
-            capacidades.FERRAMENTAS_INTERNET.pop("web_search", None)
+            capacidades.FERRAMENTAS_INTERNET["web_search"] = capacidades.ferramenta_busca_web
 
     def test_busca_web_parseia_resultados(self):
         class FakeResp:

@@ -127,11 +127,32 @@ class Orquestrador:
             r = FERRAMENTAS[cap](texto)
             if r: return fim(r, "ferramenta", "tool_ok", True, "ferramenta")
 
-        # 3) INTERNET: ferramentas sem IA (vazio por enquanto)
+        # 3) INTERNET: ferramentas sem IA
         if cap in FERRAMENTAS_INTERNET and self.tem_internet("1.1.1.1"):
             try: r = FERRAMENTAS_INTERNET[cap](texto)
             except Exception: r = None
-            if r: return fim(r, "internet", "internet_tool_ok", True, "internet")
+            if r:
+                # A busca encontrou dados; quando possível, o provider externo apenas
+                # interpreta esses resultados. Nenhum histórico ou memória é enviado.
+                if cap == "web_search":
+                    prv = self._provider()
+                    if self.cfg["API_FALLBACK"] and prv and prv.disponivel() and self.tem_internet(prv.host):
+                        prompt = (
+                            "Responda à pergunta do usuário usando SOMENTE as referências abaixo. "
+                            "Não invente fatos, datas ou fontes. Se as fontes forem insuficientes, "
+                            "diga isso claramente. Seja conciso, em português do Brasil, no estilo "
+                            "JARVIS. Depois da resposta, liste as fontes realmente usadas.\\n\\n"
+                            "PERGUNTA DO USUÁRIO:\\n" + texto + "\\n\\n"
+                            "REFERÊNCIAS ENCONTRADAS:\\n" + r
+                        )
+                        sistema_busca = "Você é o componente de síntese de resultados web do JARVIS. Use apenas o conteúdo fornecido; não faça uma segunda busca."
+                        try:
+                            resp = prv.generate(prompt, [], sistema_busca)
+                            return fim(resp, "internet+externo", "internet_sintese_ok", True, prv.nome, prv.nome,
+                                        "Busca web feita pelo JARVIS; NVIDIA usada somente para sintetizar os resultados.")
+                        except (ProviderErro, Exception):
+                            pass
+                return fim(r, "internet", "internet_tool_ok", True, "internet")
 
         # 4) NVIDIA: fallback externo
         c = CAPACIDADES[cap]; prv = self._provider()

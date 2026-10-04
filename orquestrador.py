@@ -407,7 +407,16 @@ class Orquestrador:
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
         contexto_minimo = ctx.contexto_minimo()
         memoria_estruturada = self.memoria_local.contexto(texto) if self.memoria_local else ""
-        self.memoria_local.aprender(texto) if self.memoria_local else None
+        aprendizados = self.memoria_local.aprender(texto) if self.memoria_local else []
+
+        if aprendizados:
+            partes = []
+            for categoria, chave, valor in aprendizados:
+                partes.append("%s — %s: %s" % (categoria, chave, valor))
+            return fim(
+                "Entendido. Registrei localmente: " + "; ".join(partes) + ".",
+                "local", "memory_learn_ok", True, "nucleo"
+            )
 
         # Fase 2.2: memória estruturada persistente. O dado fica no J7 e só é
         # anexado a um modelo quando ele estiver rodando localmente ou quando

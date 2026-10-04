@@ -343,7 +343,10 @@ function atualizarVozNativa() {
   if (!SINTETIZADOR) return;
   const vozes = SINTETIZADOR.getVoices();
   const ptbr = vozes.filter(v => String(v.lang || "").toLowerCase() === "pt-br");
-  const pt = vozes.filter(v => String(v.lang || "").toLowerCase().startsWith("pt-") || String(v.lang || "").toLowerCase().startsWith("pt_"));
+  const pt = vozes.filter(v => {
+    const lang = String(v.lang || "").toLowerCase();
+    return lang.startsWith("pt-") || lang.startsWith("pt_");
+  });
   vozNativa = ptbr[0] || pt[0] || null;
 }
 if (SINTETIZADOR) {
@@ -355,10 +358,11 @@ function limparTextoParaVoz(texto) {
   let s = String(texto || "");
   s = s.split("http://").join(" ");
   s = s.split("https://").join(" ");
-  for (const ch of ["*", "_", "#", "~", "^", "<", ">", "{", "}", "=", "|", "`"]) s = s.split(ch).join(" ");
+  for (const ch of ["*", "_", "#", "~", "^", "<", ">", "{", "}", "=", "\\", "|"]) {
+    s = s.split(ch).join(" ");
+  }
   return s.split(" ").filter(Boolean).join(" ").trim();
 }
-
 function quebrarLonga(frase) {
   if (frase.length <= 110) return [frase];
   const partes = frase.split(", ");
@@ -376,7 +380,6 @@ function quebrarLonga(frase) {
   if (acumulado) saida.push(acumulado);
   return saida;
 }
-
 function dividirEmFrases(texto) {
   const saida = [];
   let atual = "";
@@ -393,24 +396,20 @@ function dividirEmFrases(texto) {
   if (resto) saida.push(...quebrarLonga(resto));
   return saida;
 }
-
 function alternarVoz() {
   vozAtiva = !vozAtiva;
   $("voice-button").textContent = vozAtiva ? "🔊 VOZ ON" : "🔇 VOZ OFF";
   if (!vozAtiva) pararFala();
 }
-
 function processarFilaDeVoz() {
   if (!SINTETIZADOR || falando || !filaDeVoz.length || !vozAtiva) return;
   falando = true;
-
   const fala = new SpeechSynthesisUtterance(filaDeVoz.shift());
   fala.lang = "pt-BR";
   if (vozNativa) fala.voice = vozNativa;
   fala.rate = 0.96;
   fala.pitch = 0.88;
   fala.volume = 1.0;
-
   fala.onstart = () => document.body.classList.add("jarvis-falando");
   fala.onend = () => {
     falando = false;
@@ -423,10 +422,8 @@ function processarFilaDeVoz() {
     document.body.classList.remove("jarvis-falando");
     if (filaDeVoz.length && vozAtiva) processarFilaDeVoz();
   };
-
   SINTETIZADOR.speak(fala);
 }
-
 function falarComoJarvis(texto) {
   if (!vozAtiva || !SINTETIZADOR) return;
   const limpo = limparTextoParaVoz(texto);
@@ -434,14 +431,12 @@ function falarComoJarvis(texto) {
   filaDeVoz.push(...dividirEmFrases(limpo));
   processarFilaDeVoz();
 }
-
 function pararFala() {
   filaDeVoz = [];
   if (SINTETIZADOR) SINTETIZADOR.cancel();
   falando = false;
   document.body.classList.remove("jarvis-falando");
 }
-
 // ===== INICIALIZAÇÃO =====
 carregarChat();
 
@@ -449,9 +444,7 @@ input.addEventListener("keydown", e => {
   if (e.key === "Enter") enviarMensagem();
 });
 
-window.addEventListener("beforeunload", () => {
-  navigator.sendBeacon(API_VOZ + "/parar");
-});
+window.addEventListener("beforeunload", () => { if (SINTETIZADOR) SINTETIZADOR.cancel(); });
 </script>
 <script>
 function relogio() {

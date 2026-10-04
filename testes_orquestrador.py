@@ -119,12 +119,12 @@ class Testes(unittest.TestCase):
         self.assertIn("RTX 2060", r["resposta"])
 
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho)
-        o.responder("isso é melhor que meu monitor?")
+        o.responder("Qual a diferença entre 100 Hz e 144 Hz no meu monitor?")
         self.assertEqual(ext.chamadas, 1)
         self.assertNotIn("100 Hz", ext.ultimo[0])
 
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho, PERMITIR_MEMORIA_EXTERNA=True)
-        o.responder("isso é melhor que meu monitor?")
+        o.responder("Qual a diferença entre 100 Hz e 144 Hz no meu monitor?")
         self.assertIn("100 Hz", ext.ultimo[0])
 
     def test_fase2_contexto_semantico_e_conversao(self):

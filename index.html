@@ -355,7 +355,7 @@ function limparTextoParaVoz(texto) {
   let s = String(texto || "");
   s = s.split("http://").join(" ").split("https://").join(" ");
   for (const ch of ["*", "_", "#", "~", "^", "<", ">", "{", "}", "=", "\\", "|"]) s = s.split(ch).join(" ");
-  return s.split(/\s+/).filter(Boolean).join(" ").trim();
+  return s.split(" ").filter(Boolean).join(" ").trim();
 }
 function dividirEmFrases(texto) {
   return String(texto || "").replaceAll(". ", ".|||").replaceAll("! ", "!|||").replaceAll("? ", "?|||").split("|||").map(f => f.trim()).filter(Boolean);

@@ -34,16 +34,16 @@ CAPACIDADES = {
 def pedido_reproducao_integral(texto):
     """Detecta localmente pedidos de reprodução integral de obras protegidas."""
     n = normalizar(texto)
-    tem_obra = bool(re.search(r"\\b(letra|letras|poema|poesia|livro|capitulo|roteiro|script)\\b", n))
-    tem_integral = bool(re.search(r"\\b(completa|completo|inteira|inteiro|toda|todo|integral|na integra)\\b", n))
-    pedido_direto = bool(re.search(r"\\b(me mande|manda|me passa|passe|forneca|fornece|envie|envia|mostre|mostra|me de|me da)\\b.*\\b(letra|poema|roteiro|script)\\b", n))
+    tem_obra = bool(re.search(r"\b(letra|letras|poema|poesia|livro|capitulo|roteiro|script)\b", n))
+    tem_integral = bool(re.search(r"\b(completa|completo|inteira|inteiro|toda|todo|integral|na integra)\b", n))
+    pedido_direto = bool(re.search(r"\b(me mande|manda|me passa|passe|forneca|fornece|envie|envia|mostre|mostra|me de|me da)\b.*\b(letra|poema|roteiro|script)\b", n))
     return tem_obra and (tem_integral or pedido_direto)
 
 
 _LOCAL_DIALOGUE = re.compile(
     r"^(oi|ola|bom dia|boa tarde|boa noite|obrigado|obrigada|valeu|ok|certo|entendi|beleza|"
     r"ate logo|por que|porque|e por que|como assim|como assim isso|explique|explica|"
-    r"continue|continua|e depois)[?!.,\\s]*$"
+    r"continue|continua|e depois)[?!.,\s]*$"
 )
 
 def normalizar(t):

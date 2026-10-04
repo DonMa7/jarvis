@@ -36,7 +36,7 @@ def pedido_reproducao_integral(texto):
     n = normalizar(texto)
     tem_obra = bool(re.search(r"\b(letra|letras|poema|poesia|livro|capitulo|roteiro|script)\b", n))
     tem_integral = bool(re.search(r"\b(completa|completo|inteira|inteiro|toda|todo|integral|na integra)\b", n))
-    pedido_direto = bool(re.search(r"\b(me mande|manda|me passa|passe|forneca|fornece|envie|envia|mostre|mostra|me de|me da)\b.*\b(letra|poema|roteiro|script)\b", n))
+    pedido_direto = bool(re.search(r"\b(me mande|manda|me passa|passe|forneca|fornece|envie|envia|mostre|mostra|me de|me da|queria|gostaria)\b.*\b(letra|letras|poema|poesia|roteiro|script)\b", n))
     return tem_obra and (tem_integral or pedido_direto)
 
 

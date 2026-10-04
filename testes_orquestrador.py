@@ -243,7 +243,7 @@ class Testes(unittest.TestCase):
         self.assertEqual(st, 200)
 
         r_b = chamar("POST", "/chat", {"mensagem": "por quê?", "sessao": "B"})[2]
-        self.assertIn("resposta anterior", r_b["resposta"])
+        self.assertIn("contexto anterior", r_b["resposta"])
 
         r_a = chamar("POST", "/chat", {"mensagem": "por quê?", "sessao": "A"})[2]
         self.assertIn("direitos autorais", r_a["resposta"])

@@ -563,6 +563,117 @@ body:not(.modo-voz) .hero { display: none !important; }
   .news-meta { white-space:normal; }
 }
 
+
+/* ===== v9: produtividade, anexos e modo JARVIS ===== */
+#notas-btn {
+  height:38px; padding:0 13px; border-radius:10px;
+  background:#181818; border-color:rgba(255,255,255,.07);
+  font-size:11px; color:#c7c7c7;
+}
+#notas-btn:hover { background:#202020; transform:none; }
+
+#attach-button {
+  flex:0 0 40px; width:40px; min-width:40px; height:40px; padding:0;
+  border-radius:50%; border:0; background:transparent; color:#999;
+  font-size:25px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+}
+#attach-button:hover { background:#252525; color:#eee; transform:none; }
+#attach-button[data-on="1"] { color:var(--c); background:rgba(var(--cr),.10); }
+#voice-button {
+  flex:0 0 40px !important; width:40px !important; min-width:40px !important;
+  margin:0 2px !important; border-left:0 !important;
+}
+#send-button { flex:0 0 40px !important; width:40px !important; min-width:40px !important; margin-left:0 !important; }
+.bar-in { position:relative; gap:8px; }
+.bar-in::after { display:none; }
+#attach-button + #mic-button { margin-left:2px; }
+
+/* Estado do anexo */
+.anexo-chip {
+  position:absolute; left:14px; bottom:64px; max-width:min(500px,90%);
+  display:none; align-items:center; gap:8px; padding:7px 10px;
+  border-radius:12px; background:#171717; border:1px solid rgba(255,255,255,.09);
+  color:#ccc; font-size:12px; box-shadow:0 8px 24px rgba(0,0,0,.3);
+}
+.anexo-chip.on { display:flex; }
+.anexo-chip b { color:var(--c); font-weight:500; }
+.anexo-chip button { height:26px; padding:0 8px; font-size:11px; border-radius:8px; }
+
+/* Modo JARVIS: saída evidente */
+.voice-exit {
+  height:40px !important; padding:0 13px !important; border-radius:999px !important;
+  background:#1d1d1d !important; color:#ddd !important;
+  border:1px solid rgba(255,255,255,.10) !important;
+  font:500 11px var(--mono) !important; letter-spacing:1px;
+}
+.voice-exit:hover { background:#292929 !important; transform:none !important; }
+body.modo-voz .voice-exit { box-shadow:0 0 22px rgba(var(--cr),.10); }
+
+#jarvis-sair-flutuante {
+  position:absolute; right:24px; bottom:24px; z-index:4;
+  height:42px; padding:0 16px; border-radius:999px;
+  background:#1b1b1b; color:#ddd; border:1px solid rgba(255,255,255,.10);
+  font:500 11px var(--mono); letter-spacing:1px;
+}
+
+/* Notas */
+#notas-overlay {
+  display:none; position:fixed; inset:0; z-index:115;
+  align-items:center; justify-content:center; padding:18px;
+  background:rgba(5,5,5,.78); backdrop-filter:blur(16px);
+}
+#notas-overlay.on { display:flex; }
+.notas-panel {
+  width:min(720px,96vw); max-height:86vh; overflow:auto;
+  padding:22px; border-radius:22px; background:#111;
+  border:1px solid rgba(255,255,255,.09); box-shadow:0 30px 90px rgba(0,0,0,.5);
+}
+.nota-form { display:flex; gap:8px; margin:18px 0 10px; }
+#nota-input {
+  flex:1; min-width:0; height:44px; padding:0 13px; border-radius:12px;
+  border:1px solid rgba(255,255,255,.08); outline:0; background:#181818; color:#eee; font:14px var(--tx);
+}
+#nota-input:focus { border-color:rgba(var(--cr),.32); }
+.nota-form > button { height:44px; background:#eee; color:#111; border:0; }
+.nota-filtros { display:flex; gap:7px; margin-bottom:10px; }
+.nota-filtro.active { color:#eee; border-color:rgba(var(--cr),.35); background:rgba(var(--cr),.08); }
+#notas-lista { display:flex; flex-direction:column; gap:6px; }
+.nota-item {
+  display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center;
+  padding:10px 11px; border-radius:12px; background:#171717; border:1px solid rgba(255,255,255,.06);
+}
+.nota-item input { width:18px; height:18px; accent-color:var(--c); }
+.nota-item span { color:#ddd; font-size:14px; overflow-wrap:anywhere; }
+.nota-item.done span { color:#666; text-decoration:line-through; }
+.nota-item button { height:28px; padding:0 8px; color:#aaa; border-radius:8px; }
+.notas-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:12px; gap:12px; color:#666; font:10px var(--mono); }
+.notas-bottom .perigo { width:auto; margin:0; }
+
+/* Dados extras no briefing */
+.briefing-grid .wide-card { grid-column:1 / -1; min-height:120px; }
+.world-clocks { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+.clock-box { padding:12px; border-radius:12px; background:#141414; border:1px solid rgba(255,255,255,.06); }
+.clock-box span { display:block; color:#666; font:10px var(--mono); letter-spacing:1px; }
+.clock-box b { display:block; margin-top:5px; color:#eee; font:500 19px var(--tx); }
+
+.brief-mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+.mini-stat { padding:11px; border-radius:12px; background:#141414; border:1px solid rgba(255,255,255,.06); }
+.mini-stat span { display:block; color:#666; font:10px var(--mono); letter-spacing:1px; }
+.mini-stat b { display:block; margin-top:4px; color:#eee; font-size:13px; }
+
+@media (max-width:700px) {
+  #notas-btn { display:none; }
+  #modo-jarvis-btn { padding:0 10px; font-size:10px; }
+  #attach-button, #voice-button, #send-button { flex-basis:38px; width:38px; min-width:38px; }
+  .nota-form { flex-direction:column; }
+  .nota-form > button { width:100%; }
+  .world-clocks { grid-template-columns:1fr 1fr; }
+  .brief-mini-grid { grid-template-columns:1fr; }
+}
+
+/* Anexo e modo voz não atrapalham o chat */
+body.modo-voz .anexo-chip { display:none !important; }
+
 </style>
 </head>
 <body>
@@ -571,8 +682,8 @@ body:not(.modo-voz) .hero { display: none !important; }
   <div class="logo"><i class="logo-orb"></i><h1>J.A.R.V.I.S.</h1></div>
   <div id="relogio"><b id="hora">--:--:--</b><span id="data"></span></div>
   <div class="spacer"></div>
-  <button class="paleta-btn" onclick="abrirPaleta()" aria-label="Buscar comando"><span>Buscar comando…</span><kbd>Ctrl K</kbd></button>  <button id="briefing-btn" onclick="abrirBriefing()" aria-label="Abrir briefing">BRIEFING</button>
-  <button id="modo-jarvis-btn" onclick="abrirModoVoz()" aria-label="Entrar no modo JARVIS">JARVIS</button>
+  <button class="paleta-btn" onclick="abrirPaleta()" aria-label="Buscar comando"><span>Buscar comando…</span><kbd>Ctrl K</kbd></button>  <button id="briefing-btn" onclick="abrirBriefing()" aria-label="Abrir briefing">BRIEFING</button>  <button id="notas-btn" onclick="abrirNotas()" aria-label="Abrir notas e tarefas">NOTAS</button>
+  <button id="modo-jarvis-btn" onclick="abrirModoVoz()" aria-label="Entrar no modo JARVIS">MODO JARVIS</button>
   <div class="temas"><button class="tema" data-t="cyan" title="Ciano"></button><button class="tema" data-t="gold" title="Dourado"></button><button class="tema" data-t="red" title="Mark III"></button><button class="tema" data-t="green" title="Esmeralda"></button></div>
   <div id="status">● AGUARDANDO</div>
 </header>
@@ -631,7 +742,7 @@ body:not(.modo-voz) .hero { display: none !important; }
           <span class="voice-kicker">J.A.R.V.I.S.</span>
           <strong>Modo de voz</strong>
         </div>
-        <button class="voice-close" onclick="fecharModoVoz()" aria-label="Fechar modo de voz">×</button>
+        <button class="voice-exit" onclick="fecharModoVoz()" aria-label="Sair do modo JARVIS">SAIR ×</button>
       </div>
       <div id="orb" title="Toque para falar">
         <svg id="core" viewBox="0 0 240 240" aria-hidden="true">
@@ -648,7 +759,7 @@ body:not(.modo-voz) .hero { display: none !important; }
       </div>
       <div id="estado-core" data-e="ocioso">PRONTO</div>
       <div id="hud-extra"><span>LAT <b id="h-lat">--</b></span><span>THREADS <b id="h-cpu">N/A</b></span><span>UP <b id="h-up">--</b></span></div>
-      <p class="hint">Fale com o JARVIS. Toque no microfone para encerrar a escuta.</p>
+      <p class="hint">Fale com o JARVIS. Toque no microfone para encerrar a escuta.</p><button id="jarvis-sair-flutuante" onclick="fecharModoVoz()">SAIR DO MODO JARVIS</button>
       <div class="voice-controls">
         <button id="voice-mic-overlay" class="voice-round" onclick="alternarMicrofone()" aria-label="Microfone">🎙</button>
         <button class="voice-round ghost" onclick="pararFala()" aria-label="Parar fala">■</button>
@@ -665,11 +776,12 @@ body:not(.modo-voz) .hero { display: none !important; }
         <button class="mini" onclick="alternarHUD()">HUD</button><button class="mini" onclick="pararFala()">⏹ PARAR FALA</button>
       </div>
       <div class="bar-in">
-        <input id="message" type="text" placeholder="Em que posso ajudar, senhor?" autocomplete="off">
+        <input id="message" type="text" placeholder="Em que posso ajudar, senhor?" autocomplete="off"><input id="arquivo-input" type="file" accept="image/*" hidden><button id="attach-button" onclick="abrirArquivo()" aria-label="Anexar imagem">＋</button>
         <button id="mic-button" data-m="off" onclick="alternarModoVoz()" aria-label="Modo de voz">🎙</button>
         <button id="voice-button" data-v="on" onclick="alternarVoz()" aria-label="Ativar ou desativar voz">🔊</button>
         <button id="send-button" onclick="enviarMensagem()">ENVIAR</button>
       </div>
+      <div id="anexo-chip" class="anexo-chip" aria-live="polite"></div>
     </div>
   </main>
 </div>
@@ -717,7 +829,32 @@ body:not(.modo-voz) .hero { display: none !important; }
     <div class="brief-footer">Dados externos carregados somente quando o briefing é aberto.</div>
   </div>
 </div>
-<div id="overlay" onclick="if (event.target === this) fecharPainel()"><div class="pn"><h2 id="ov-titulo"></h2><div id="ov-corpo"></div><button class="mini" style="margin-top:16px" onclick="fecharPainel()">FECHAR</button></div></div>
+<div id="notas-overlay" aria-hidden="true">
+  <div class="notas-panel">
+    <div class="briefing-top">
+      <div>
+        <span class="voice-kicker">J.A.R.V.I.S.</span>
+        <h2>NOTAS & TAREFAS</h2>
+      </div>
+      <button class="voice-close" onclick="fecharNotas()" aria-label="Fechar notas">×</button>
+    </div>
+    <div class="nota-form">
+      <input id="nota-input" type="text" placeholder="Adicionar uma tarefa ou anotação..." autocomplete="off">
+      <button onclick="adicionarNota()">ADICIONAR</button>
+    </div>
+    <div class="nota-filtros">
+      <button class="mini nota-filtro active" data-f="todas">TODAS</button>
+      <button class="mini nota-filtro" data-f="pendentes">PENDENTES</button>
+      <button class="mini nota-filtro" data-f="concluidas">CONCLUÍDAS</button>
+    </div>
+    <div id="notas-lista"></div>
+    <div class="notas-bottom">
+      <span id="notas-contador">0 itens</span>
+      <button class="mini perigo" onclick="limparNotasConcluidas()">LIMPAR CONCLUÍDAS</button>
+    </div>
+  </div>
+</div>
+<div id="overlay onclick="if (event.target === this) fecharPainel()"><div class="pn"><h2 id="ov-titulo"></h2><div id="ov-corpo"></div><button class="mini" style="margin-top:16px" onclick="fecharPainel()">FECHAR</button></div></div>
 <div id="paleta" onclick="if (event.target === this) fecharPaleta()"><div class="pal"><input id="paleta-q" placeholder="Digite para buscar um comando…" autocomplete="off"><div id="paleta-lista"></div></div></div>
 <div id="toast" onclick="this.classList.remove('on')"></div>
 
@@ -810,7 +947,7 @@ async function enviarMensagem() {
     const resposta = await fetch(API_CHAT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mensagem: comMemoria(texto) })   /* memória local (v4); formato do backend inalterado */
+      body: JSON.stringify({ mensagem: comMemoria(texto), imagem: imagemAnexada || null })
     });
     const dados = await resposta.json();
     setStatus(true, Math.round(performance.now() - t0));
@@ -831,6 +968,7 @@ async function enviarMensagem() {
     enviando = false;
     document.body.classList.remove("jarvis-processando");
     btnEnviar.disabled = false;
+    limparAnexo();
     input.focus();
   }
 }
@@ -1601,6 +1739,173 @@ document.querySelectorAll(".news-tab").forEach(b => {
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") fecharBriefing();
+});
+
+// ================================
+// v9: FERRAMENTAS LOCAIS DO SITE
+// ================================
+
+// ----- Notas / tarefas -----
+const NOTAS_KEY = "jarvis_notas";
+let filtroNotas = "todas";
+
+function lerNotas() {
+  try { return JSON.parse(localStorage.getItem(NOTAS_KEY)) || []; } catch (e) { return []; }
+}
+function salvarNotas(lista) {
+  try { localStorage.setItem(NOTAS_KEY, JSON.stringify(lista)); } catch (e) {}
+}
+function abrirNotas() {
+  $("notas-overlay").classList.add("on");
+  $("notas-overlay").setAttribute("aria-hidden", "false");
+  renderNotas();
+  setTimeout(() => $("nota-input").focus(), 30);
+}
+function fecharNotas() {
+  $("notas-overlay").classList.remove("on");
+  $("notas-overlay").setAttribute("aria-hidden", "true");
+}
+function adicionarNota() {
+  const inp = $("nota-input");
+  const texto = inp.value.trim();
+  if (!texto) return;
+  const notas = lerNotas();
+  notas.unshift({ id: Date.now(), texto, concluida:false });
+  salvarNotas(notas);
+  inp.value = "";
+  renderNotas();
+  inp.focus();
+}
+function alternarNota(id) {
+  const notas = lerNotas();
+  const n = notas.find(x => x.id === id);
+  if (n) n.concluida = !n.concluida;
+  salvarNotas(notas);
+  renderNotas();
+}
+function excluirNota(id) {
+  salvarNotas(lerNotas().filter(x => x.id !== id));
+  renderNotas();
+}
+function limparNotasConcluidas() {
+  salvarNotas(lerNotas().filter(x => !x.concluida));
+  renderNotas();
+}
+function renderNotas() {
+  const box = $("notas-lista");
+  if (!box) return;
+  const todas = lerNotas();
+  const visiveis = filtroNotas === "pendentes" ? todas.filter(x => !x.concluida)
+                    : filtroNotas === "concluidas" ? todas.filter(x => x.concluida)
+                    : todas;
+  box.textContent = "";
+  if (!visiveis.length) {
+    const v = document.createElement("div");
+    v.className = "brief-muted";
+    v.textContent = filtroNotas === "todas" ? "Nenhuma anotação ainda." : "Nenhum item neste filtro.";
+    box.appendChild(v);
+  } else {
+    for (const n of visiveis) {
+      const row = document.createElement("div");
+      row.className = "nota-item" + (n.concluida ? " done" : "");
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = !!n.concluida;
+      check.onchange = () => alternarNota(n.id);
+      const span = document.createElement("span");
+      span.textContent = n.texto;
+      const del = document.createElement("button");
+      del.className = "mini";
+      del.textContent = "EXCLUIR";
+      del.onclick = () => excluirNota(n.id);
+      row.append(check, span, del);
+      box.appendChild(row);
+    }
+  }
+  const pend = todas.filter(x => !x.concluida).length;
+  $("notas-contador").textContent = todas.length + (todas.length === 1 ? " item" : " itens") + " · " + pend + " pendentes";
+}
+
+document.querySelectorAll(".nota-filtro").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".nota-filtro").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    filtroNotas = b.dataset.f;
+    renderNotas();
+  });
+});
+$("nota-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") adicionarNota();
+});
+
+// ----- Anexo de imagem -----
+let imagemAnexada = null;
+function abrirArquivo() { $("arquivo-input").click(); }
+function limparAnexo() {
+  imagemAnexada = null;
+  $("arquivo-input").value = "";
+  $("attach-button").dataset.on = "0";
+  const chip = $("anexo-chip");
+  if (chip) chip.classList.remove("on");
+  if (chip) chip.innerHTML = "";
+}
+$("arquivo-input").addEventListener("change", async () => {
+  const arquivo = $("arquivo-input").files[0];
+  if (!arquivo) return;
+  if (!arquivo.type.startsWith("image/")) {
+    limparAnexo();
+    avisarLocal("Este botão aceita imagens, senhor.", "");
+    return;
+  }
+  if (arquivo.size > 8 * 1024 * 1024) {
+    limparAnexo();
+    avisarLocal("A imagem excede o limite de 8 MB.", "");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    imagemAnexada = String(reader.result || "");
+    $("attach-button").dataset.on = "1";
+    const chip = $("anexo-chip");
+    if (chip) {
+      chip.textContent = "";
+      const b = document.createElement("b");
+      b.textContent = arquivo.name;
+      const x = document.createElement("button");
+      x.className = "mini";
+      x.textContent = "✕";
+      x.onclick = limparAnexo;
+      chip.append(b, x);
+      chip.classList.add("on");
+    }
+  };
+  reader.readAsDataURL(arquivo);
+});
+
+// ----- Relógios mundiais -----
+function atualizarRelogiosMundiais() {
+  const mapa = [
+    ["clock-sp", "America/Sao_Paulo"],
+    ["clock-ny", "America/New_York"],
+    ["clock-london", "Europe/London"],
+    ["clock-tokyo", "Asia/Tokyo"]
+  ];
+  for (const [id, zona] of mapa) {
+    const el = $(id);
+    if (!el) continue;
+    el.textContent = new Intl.DateTimeFormat("pt-BR", { timeZone: zona, hour:"2-digit", minute:"2-digit" }).format(new Date());
+  }
+}
+atualizarRelogiosMundiais();
+setInterval(atualizarRelogiosMundiais, 1000);
+
+// ----- Escape fecha tudo relevante -----
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    fecharNotas();
+    fecharBriefing();
+    fecharModoVoz();
+  }
 });
 </script>
 </body>

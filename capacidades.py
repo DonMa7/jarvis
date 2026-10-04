@@ -6,11 +6,12 @@ tipo: "ferramenta" (código local) | "modelo" (precisa de um modelo de linguagem
 dados: o que sai do aparelho se um provider EXTERNO for usado: texto | imagem | documento
 aviso: avisar o usuário antes de usar o serviço externo
 """
-import re, unicodedata
+import html, re, unicodedata, urllib.parse, urllib.request
 
 CAPACIDADES = {
     # --- locais / frontend ---
     "basic_math":       {"tipo": "ferramenta", "desc": "Cálculos simples"},
+    "web_search":       {"tipo": "ferramenta", "dados": "texto", "aviso": False, "desc": "Busca na internet"},
     "memory":           {"tipo": "frontend",   "desc": "Memória do usuário (navegador)"},
     "local_commands":   {"tipo": "frontend",   "desc": "Comandos locais, timer, cronômetro, sites"},
     "device_control":   {"tipo": "frontend",   "desc": "Controle do aparelho/navegador"},
@@ -61,6 +62,7 @@ _REGRAS = [
     ("translation",     r"\b(traduz\w*|traduc\w*)\b"),
     ("complex_code_analysis", r"\b(analis\w*|revis\w*|depur\w*|debug\w*|otimiz\w*|refator\w*|ache o bug|encontre o bug)\b.*\b(codigo|script|funcao|programa|bug|classe)\b"),
     ("advanced_reasoning", r"\b(demonstre|prove que|raciocin\w*|analise detalhada|passo a passo.*(logic|matematic|problema))\b"),
+    ("web_search", r"\b(pesquis\w*|procure|busque|buscar|pesquisa|na internet|ultimas? noticias|noticias sobre|o que aconteceu hoje|cotacao|preco atual)\b"),
 ]
 def classificar(texto, tem_imagem=False, tem_documento=False):
     if tem_imagem: return "image_analysis"
@@ -129,7 +131,34 @@ def ferramenta_matematica(texto):
     try: return "O resultado é %s." % _fmt(_calcular(expr))
     except (ValueError, ZeroDivisionError, OverflowError): return None
 
-FERRAMENTAS = {"basic_math": ferramenta_matematica}   # capacidade -> função(texto) -> resposta | None
+
+def ferramenta_busca_web(texto):
+    """Busca pública simples via DuckDuckGo HTML, sem chave/API externa."""
+    n = normalizar(texto)
+    n = re.sub(r"^(jarvis[, ]*)?(pesquise|pesquisa|procure|busque|buscar|pesquisa na internet)\s*(na internet)?\s*", "", n).strip(" ?.!:;")
+    n = re.sub(r"\b(na internet|na web|online)\b", "", n).strip(" ?.!:;")
+    if not n: return None
+    url = "https://html.duckduckgo.com/html/?" + urllib.parse.urlencode({"q": n, "kl": "br-pt"})
+    req = urllib.request.Request(url, headers={"User-Agent": "JARVIS/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            pagina = r.read().decode("utf-8", errors="replace")
+    except Exception:
+        return None
+    blocos = re.findall(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', pagina, flags=re.I|re.S)
+    if not blocos: return None
+    linhas = ["Encontrei estas referências na internet:"]
+    for i, item in enumerate(blocos[:5], 1):
+        link, titulo = item
+        titulo = re.sub(r"<.*?>", "", titulo)
+        titulo = html.unescape(titulo).strip()
+        link = html.unescape(link)
+        if link.startswith("//"): link = "https:" + link
+        linhas.append(str(i) + ". " + titulo + " — " + link)
+    return "\n".join(linhas)
+
+FERRAMENTAS = {"basic_math": ferramenta_matematica, "web_search": ferramenta_busca_web}
+FERRAMENTAS_INTERNET = {}
 
 # Ferramentas que precisam de INTERNET mas não de IA (ex.: clima, busca, cotação). Etapa 3 da prioridade
 # LOCAL > FERRAMENTA > INTERNET > NVIDIA. Vazio por enquanto: nada foi inventado. Para adicionar:

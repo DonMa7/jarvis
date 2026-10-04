@@ -20,6 +20,7 @@ CAPACIDADES = {
     "local_dialogue":   {"tipo": "ferramenta", "desc": "Conversação básica e continuidade local"},
     "copyright_request":{"tipo": "ferramenta", "desc": "Detecção local de pedidos de reprodução integral"},
     "unit_conversion":  {"tipo": "ferramenta", "desc": "Conversões de unidades sem internet"},
+    "persistent_memory": {"tipo": "ferramenta", "desc": "Memória persistente estruturada no aparelho"},
     # --- texto: um modelo local pequeno pode resolver ---
     "conversation":     {"tipo": "modelo", "dados": "texto", "aviso": False, "desc": "Conversa geral"},
     "text_correction":  {"tipo": "modelo", "dados": "texto", "aviso": False, "desc": "Correção de ortografia e gramática"},
@@ -162,6 +163,7 @@ def ferramenta_conversao(texto):
 # ---------- classificador de intenção (regras explícitas, sem depender de erro do modelo) ----------
 _REGRAS = [
     ("self_awareness",  r"\b(o que (voce|você) (consegue|pode|sabe) fazer|quais (sao|são) (as )?suas capacidades|suas capacidades|como voce (funciona|opera)|como você (funciona|opera))\b"),
+    ("persistent_memory", r"\b(o que (voce|você) lembra( de mim)?|quais coisas voce lembra|mostre o que voce lembra|qual (e|é) (meu|minha) (monitor|processador|placa de video|placa grafica|celular))\b"),
     ("text_correction", r"\b(corrij\w*|corrig\w*|revis(e|ar|ao)\b.*\b(texto|ortografia|gramatica)|ortografia|gramatica)\b"),
     ("summarization",   r"\b(resum(a|e|ir|o)|sintetiz\w*)\b"),
     ("translation",     r"\b(traduz\w*|traduc\w*)\b"),

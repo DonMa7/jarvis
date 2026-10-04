@@ -142,15 +142,15 @@ class Orquestrador:
                             "Não invente fatos, datas ou fontes. Se as fontes forem insuficientes, "
                             "diga isso claramente. Seja conciso, em português do Brasil, no estilo "
                             "JARVIS. Depois da resposta, liste as fontes realmente usadas.\\n\\n"
-                            "PERGUNTA DO USUÁRIO:\\n" + texto + "\\n\\n"
-                            "REFERÊNCIAS ENCONTRADAS:\\n" + r
+                            "PERGUNTA DO USUÁRIO:\n" + texto + "\\n\\n"
+                            "REFERÊNCIAS ENCONTRADAS:\n" + r
                         )
                         sistema_busca = "Você é o componente de síntese de resultados web do JARVIS. Use apenas o conteúdo fornecido; não faça uma segunda busca."
                         try:
                             resp = prv.generate(prompt, [], sistema_busca)
                             return fim(resp, "internet+externo", "internet_sintese_ok", True, prv.nome, prv.nome,
                                         "Busca web feita pelo JARVIS; NVIDIA usada somente para sintetizar os resultados.")
-                        except (ProviderErro, Exception):
+                        except Exception:
                             pass
                 return fim(r, "internet", "internet_tool_ok", True, "internet")
 

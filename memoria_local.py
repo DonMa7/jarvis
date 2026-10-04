@@ -177,6 +177,27 @@ class MemoriaLocal:
             "mostre o que voce lembra",
         }
 
+    def resposta_contextual(self, texto):
+        """Resolve perguntas simples usando uma memória local conhecida, sem recorrer a API."""
+        n = _norm(texto).strip(" ?!.")
+        if "monitor" in n:
+            with self.lock:
+                hz = self.dados["memorias"]["monitor"].get("monitor", "")
+            if hz:
+                if any(x in n for x in ("bom para jogar", "bom pra jogar", "bom para jogos", "bom pra jogos",
+                                         "serve para jogar", "serve pra jogar", "suficiente para jogar",
+                                         "suficiente pra jogar", "vale a pena para jogar")):
+                    return (
+                        "Sim. Pelo que o senhor me informou, seu monitor é de %s, então ele já oferece "
+                        "uma fluidez boa para jogos. Para jogos competitivos, 144 Hz ou mais ainda "
+                        "proporciona mais suavidade, mas 100 Hz já é um avanço claro sobre 60 Hz."
+                    ) % hz
+                if n in {"meu monitor", "minha tela", "meu display"}:
+                    return "Seu monitor é o modelo que o senhor me descreveu anteriormente, com %s." % hz
+                if any(x in n for x in ("quantos hz", "qual a frequencia", "qual frequencia", "qual taxa de atualizacao", "qual taxa de atualizacao")):
+                    return "Seu monitor é de %s." % hz
+        return None
+
     def aprender(self, texto):
         """Aprende apenas declarações explícitas de hardware e dispositivos."""
         original = " ".join((texto or "").strip().split())

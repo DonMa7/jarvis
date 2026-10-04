@@ -127,6 +127,10 @@ class Testes(unittest.TestCase):
         self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 1))
         self.assertIn("100 Hz", r["resposta"])
 
+        r = o.responder("meu processador é um i5 3570k")
+        self.assertEqual(r["capacidade"], "conversation")
+        self.assertNotIn("monitor", r["resposta"].lower())
+
         r = o.responder("ele é bom para jogar?")
         self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 1))
         self.assertIn("100 Hz", r["resposta"])

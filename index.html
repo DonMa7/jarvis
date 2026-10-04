@@ -483,6 +483,86 @@ body:not(.modo-voz) .hero { display: none !important; }
 
 /* Modelo exibido no painel */
 
+
+/* ===== v8: controles e briefing ===== */
+#briefing-btn, #modo-jarvis-btn {
+  height: 38px; padding: 0 13px; border-radius: 10px;
+  background: #181818; border-color: rgba(255,255,255,.07);
+  font-size: 11px; letter-spacing: .4px; color: #c7c7c7;
+}
+#modo-jarvis-btn { color: var(--c); border-color: rgba(var(--cr),.28); }
+#briefing-btn:hover, #modo-jarvis-btn:hover { background: #202020; transform: none; }
+
+#voice-button {
+  flex: 0 0 42px !important; width: 42px !important; min-width: 42px !important;
+  height: 42px !important; padding: 0 !important; border-radius: 50% !important;
+  display: inline-flex !important; align-items: center; justify-content: center;
+  background: transparent !important; border: 0 !important;
+  font-size: 18px; color: #a6a6a6;
+  margin-left: 2px; margin-right: 2px;
+}
+#voice-button[data-v=off] { color: #777; }
+#voice-button[data-v=falando] { color: var(--c); background: rgba(var(--cr),.08) !important; }
+#send-button { margin-left: 4px; }
+.bar-in { gap: 10px; }
+.bar-in::after {
+  content: ""; width: 1px; height: 24px; background: rgba(255,255,255,.08); order: 4;
+  position: absolute; right: 54px; pointer-events: none;
+}
+#briefing-overlay {
+  display: none; position: fixed; z-index: 110; inset: 0;
+  align-items: center; justify-content: center;
+  padding: 24px; background: rgba(6,6,6,.78); backdrop-filter: blur(16px);
+}
+#briefing-overlay.on { display: flex; }
+.briefing-panel {
+  width: min(980px, 96vw); max-height: 88vh; overflow: auto;
+  border-radius: 22px; border: 1px solid rgba(255,255,255,.09);
+  background: #111; box-shadow: 0 30px 90px rgba(0,0,0,.5);
+  padding: 22px;
+}
+.briefing-top { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.briefing-top h2 { margin: 4px 0 0; font: 700 18px var(--tx); letter-spacing: 3px; color:#f1f1f1; }
+.briefing-actions { display:flex; align-items:center; gap:8px; }
+.briefing-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.brief-card {
+  min-height: 170px; padding:16px; border-radius:16px;
+  background:#171717; border:1px solid rgba(255,255,255,.07);
+}
+.news-card { grid-column: 1 / -1; }
+.brief-title { display:flex; justify-content:space-between; gap:12px; color:#8f8f8f; font:600 10px var(--mono); letter-spacing:1.8px; }
+.brief-title b { color:#cfcfcf; font-weight:500; }
+.weather-main { display:flex; align-items:baseline; gap:14px; margin:12px 0 8px; }
+.weather-main strong { font: 600 48px var(--tx); letter-spacing:-2px; color:#f2f2f2; }
+.weather-main span { color:#aaa; font-size:14px; }
+.weather-details { display:grid; grid-template-columns:1fr 1fr; gap:7px 18px; color:#858585; font-size:12px; }
+.weather-details b { color:#ddd; font-weight:500; }
+.fx-main { margin:18px 0 4px; font:500 24px var(--tx); color:#eee; }
+.brief-muted { color:#777; font-size:12px; line-height:1.5; }
+.brief-link { margin-top:14px; background:#131313; }
+.news-tabs { display:flex; gap:7px; margin:12px 0; overflow-x:auto; }
+.news-tab.active { color:#eee; border-color:rgba(var(--cr),.36); background:rgba(var(--cr),.08); }
+#news-list { display:grid; gap:9px; }
+.news-item {
+  display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:start;
+  padding:10px 0; border-top:1px solid rgba(255,255,255,.06);
+}
+.news-item a { color:#e8e8e8; text-decoration:none; font-size:13.5px; line-height:1.4; }
+.news-item a:hover { color:var(--c); }
+.news-meta { color:#666; font:400 10px var(--mono); white-space:nowrap; }
+.brief-footer { margin-top:14px; color:#5f5f5f; font:400 10px var(--mono); }
+
+@media (max-width:700px) {
+  #briefing-btn { display:none; }
+  #modo-jarvis-btn { padding:0 10px; }
+  .briefing-grid { grid-template-columns:1fr; }
+  .news-card { grid-column:auto; }
+  #briefing-overlay { padding:10px; }
+  .briefing-panel { padding:15px; border-radius:17px; }
+  .news-item { grid-template-columns:1fr; }
+  .news-meta { white-space:normal; }
+}
+
 </style>
 </head>
 <body>
@@ -491,7 +571,8 @@ body:not(.modo-voz) .hero { display: none !important; }
   <div class="logo"><i class="logo-orb"></i><h1>J.A.R.V.I.S.</h1></div>
   <div id="relogio"><b id="hora">--:--:--</b><span id="data"></span></div>
   <div class="spacer"></div>
-  <button class="paleta-btn" onclick="abrirPaleta()" aria-label="Buscar comando"><span>Buscar comando…</span><kbd>Ctrl K</kbd></button>
+  <button class="paleta-btn" onclick="abrirPaleta()" aria-label="Buscar comando"><span>Buscar comando…</span><kbd>Ctrl K</kbd></button>  <button id="briefing-btn" onclick="abrirBriefing()" aria-label="Abrir briefing">BRIEFING</button>
+  <button id="modo-jarvis-btn" onclick="abrirModoVoz()" aria-label="Entrar no modo JARVIS">JARVIS</button>
   <div class="temas"><button class="tema" data-t="cyan" title="Ciano"></button><button class="tema" data-t="gold" title="Dourado"></button><button class="tema" data-t="red" title="Mark III"></button><button class="tema" data-t="green" title="Esmeralda"></button></div>
   <div id="status">● AGUARDANDO</div>
 </header>
@@ -586,13 +667,56 @@ body:not(.modo-voz) .hero { display: none !important; }
       <div class="bar-in">
         <input id="message" type="text" placeholder="Em que posso ajudar, senhor?" autocomplete="off">
         <button id="mic-button" data-m="off" onclick="alternarModoVoz()" aria-label="Modo de voz">🎙</button>
-        <button id="voice-button" data-v="on" onclick="alternarVoz()">🔊 VOZ ON</button>
+        <button id="voice-button" data-v="on" onclick="alternarVoz()" aria-label="Ativar ou desativar voz">🔊</button>
         <button id="send-button" onclick="enviarMensagem()">ENVIAR</button>
       </div>
     </div>
   </main>
 </div>
 
+<div id="briefing-overlay" aria-hidden="true">
+  <div class="briefing-panel">
+    <div class="briefing-top">
+      <div>
+        <span class="voice-kicker">J.A.R.V.I.S.</span>
+        <h2>BRIEFING</h2>
+      </div>
+      <div class="briefing-actions">
+        <button class="mini" onclick="atualizarBriefing()">ATUALIZAR</button>
+        <button class="voice-close" onclick="fecharBriefing()" aria-label="Fechar briefing">×</button>
+      </div>
+    </div>
+    <div class="briefing-grid">
+      <section class="brief-card weather-card">
+        <div class="brief-title"><span>CLIMA</span><b id="clima-local">SUA LOCALIZAÇÃO</b></div>
+        <div class="weather-main"><strong id="clima-temp">--°</strong><span id="clima-desc">Aguardando localização</span></div>
+        <div class="weather-details">
+          <span>Sensação <b id="clima-sens">--</b></span>
+          <span>Umidade <b id="clima-umid">--</b></span>
+          <span>Vento <b id="clima-vento">--</b></span>
+          <span>Máx/Mín <b id="clima-maxmin">-- / --</b></span>
+        </div>
+        <button class="mini brief-link" onclick="definirCidadeClima()">DEFINIR CIDADE</button>
+      </section>
+      <section class="brief-card">
+        <div class="brief-title"><span>CÂMBIO</span><b>USD / BRL</b></div>
+        <div class="fx-main" id="cambio-usd">US$ 1 = R$ --</div>
+        <div class="brief-muted" id="cambio-data">Última referência disponível</div>
+      </section>
+      <section class="brief-card news-card">
+        <div class="brief-title"><span>NOTÍCIAS</span><b>ÚLTIMAS</b></div>
+        <div class="news-tabs">
+          <button class="mini news-tab active" data-q="Brasil">BRASIL</button>
+          <button class="mini news-tab" data-q="world">MUNDO</button>
+          <button class="mini news-tab" data-q="technology">TECNO</button>
+          <button class="mini news-tab" data-q="sports">ESPORTE</button>
+        </div>
+        <div id="news-list"><div class="brief-muted">Carregando notícias…</div></div>
+      </section>
+    </div>
+    <div class="brief-footer">Dados externos carregados somente quando o briefing é aberto.</div>
+  </div>
+</div>
 <div id="overlay" onclick="if (event.target === this) fecharPainel()"><div class="pn"><h2 id="ov-titulo"></h2><div id="ov-corpo"></div><button class="mini" style="margin-top:16px" onclick="fecharPainel()">FECHAR</button></div></div>
 <div id="paleta" onclick="if (event.target === this) fecharPaleta()"><div class="pal"><input id="paleta-q" placeholder="Digite para buscar um comando…" autocomplete="off"><div id="paleta-lista"></div></div></div>
 <div id="toast" onclick="this.classList.remove('on')"></div>
@@ -1318,6 +1442,166 @@ document.addEventListener("keydown", e => {
 });
 // Fecha o menu lateral (celular) ao enviar uma mensagem
 input.addEventListener("keydown", e => { if (e.key === "Enter") document.body.classList.remove("painel-aberto"); });
+
+// ================================
+// v8: BRIEFING — clima, notícias e câmbio
+// ================================
+let briefingAtualizando = false;
+let briefingGeo = null;
+let briefingCategoria = "Brasil";
+
+const BRIEFING_GDELT = "https://api.gdeltproject.org/api/v2/doc/doc";
+const BRIEFING_CAMBIO = "https://api.frankfurter.dev/v2/rate/usd/brl";
+const BRIEFING_WMO = {
+  0: "Céu limpo", 1: "Principalmente limpo", 2: "Parcialmente nublado", 3: "Nublado",
+  45: "Névoa", 48: "Névoa com geada", 51: "Garoa leve", 53: "Garoa", 55: "Garoa forte",
+  61: "Chuva leve", 63: "Chuva", 65: "Chuva forte", 71: "Neve leve", 73: "Neve", 75: "Neve forte",
+  80: "Pancadas leves", 81: "Pancadas", 82: "Pancadas fortes", 95: "Trovoada", 96: "Trovoada com granizo", 99: "Trovoada com granizo forte"
+};
+
+function abrirBriefing() {
+  $("briefing-overlay").classList.add("on");
+  $("briefing-overlay").setAttribute("aria-hidden", "false");
+  atualizarBriefing();
+}
+function fecharBriefing() {
+  $("briefing-overlay").classList.remove("on");
+  $("briefing-overlay").setAttribute("aria-hidden", "true");
+}
+function definirCidadeClima() {
+  const atual = localStorage.getItem("jarvis_clima_cidade") || "";
+  const cidade = prompt("Qual cidade devo usar para o clima?", atual || "Ex.: Caetité, BA");
+  if (cidade === null) return;
+  if (!cidade.trim()) return;
+  localStorage.setItem("jarvis_clima_cidade", cidade.trim());
+  briefingGeo = null;
+  obterClima();
+}
+async function geocodificarCidade(nome) {
+  const u = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(nome) + "&count=1&language=pt&format=json";
+  const r = await fetch(u, { cache: "no-store" });
+  if (!r.ok) throw new Error("geocoding " + r.status);
+  const d = await r.json();
+  if (!d.results || !d.results.length) throw new Error("cidade não encontrada");
+  return d.results[0];
+}
+function pedirGeolocalizacao() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error("geolocalização indisponível"));
+    navigator.geolocation.getCurrentPosition(
+      p => resolve({ latitude:p.coords.latitude, longitude:p.coords.longitude }),
+      e => reject(e),
+      { enableHighAccuracy:false, timeout:8000, maximumAge:900000 }
+    );
+  });
+}
+async function obterClima() {
+  const cidadeSalva = localStorage.getItem("jarvis_clima_cidade");
+  try {
+    let pos;
+    if (cidadeSalva) {
+      const g = await geocodificarCidade(cidadeSalva);
+      pos = { latitude:g.latitude, longitude:g.longitude, label:g.name + (g.admin1 ? ", " + g.admin1 : "") };
+    } else {
+      const p = await pedirGeolocalizacao();
+      pos = { latitude:p.latitude, longitude:p.longitude, label:"Sua localização" };
+    }
+    const u = "https://api.open-meteo.com/v1/forecast?latitude=" + pos.latitude + "&longitude=" + pos.longitude +
+      "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code" +
+      "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto";
+    const r = await fetch(u, { cache:"no-store" });
+    if (!r.ok) throw new Error("weather " + r.status);
+    const d = await r.json();
+    briefingGeo = pos;
+    $("clima-local").textContent = pos.label.toUpperCase();
+    $("clima-temp").textContent = Math.round(d.current.temperature_2m) + "°";
+    $("clima-desc").textContent = BRIEFING_WMO[d.current.weather_code] || "Condição atual";
+    $("clima-sens").textContent = Math.round(d.current.apparent_temperature) + "°";
+    $("clima-umid").textContent = Math.round(d.current.relative_humidity_2m) + "%";
+    $("clima-vento").textContent = Math.round(d.current.wind_speed_10m) + " km/h";
+    $("clima-maxmin").textContent = Math.round(d.daily.temperature_2m_max[0]) + "° / " + Math.round(d.daily.temperature_2m_min[0]) + "°";
+  } catch (e) {
+    $("clima-local").textContent = cidadeSalva ? cidadeSalva.toUpperCase() : "LOCALIZAÇÃO BLOQUEADA";
+    $("clima-temp").textContent = "--°";
+    $("clima-desc").textContent = "Permissão de localização necessária";
+    $("clima-sens").textContent = "--";
+    $("clima-umid").textContent = "--";
+    $("clima-vento").textContent = "--";
+    $("clima-maxmin").textContent = "-- / --";
+  }
+}
+async function obterCambio() {
+  try {
+    const r = await fetch(BRIEFING_CAMBIO, { cache:"no-store" });
+    if (!r.ok) throw new Error("fx " + r.status);
+    const d = await r.json();
+    $("cambio-usd").textContent = "US$ 1 = R$ " + Number(d.rate).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:4});
+    $("cambio-data").textContent = "Referência: " + (d.date || "última disponível");
+  } catch (e) {
+    $("cambio-usd").textContent = "US$ 1 = R$ --";
+    $("cambio-data").textContent = "Cotação indisponível no momento";
+  }
+}
+function dominioBonito(url) {
+  try { return new URL(url).hostname.replace(/^www\./,""); } catch (e) { return ""; }
+}
+async function obterNoticias() {
+  const box = $("news-list");
+  box.innerHTML = '<div class="brief-muted">Atualizando notícias…</div>';
+  let q = "Brasil OR Brazil";
+  if (briefingCategoria === "world") q = "world OR international";
+  if (briefingCategoria === "technology") q = "technology OR tecnologia OR AI";
+  if (briefingCategoria === "sports") q = "sports OR esporte OR futebol";
+  const u = BRIEFING_GDELT + "?query=" + encodeURIComponent("(" + q + ")") +
+    "&mode=artlist&format=json&maxrecords=7&timespan=12h&sort=datedesc";
+  try {
+    const r = await fetch(u, { cache:"no-store" });
+    if (!r.ok) throw new Error("news " + r.status);
+    const d = await r.json();
+    const artigos = (d.articles || []).slice(0,7);
+    if (!artigos.length) {
+      box.innerHTML = '<div class="brief-muted">Nenhuma notícia recente encontrada.</div>';
+      return;
+    }
+    box.innerHTML = "";
+    for (const a of artigos) {
+      const item = document.createElement("div");
+      item.className = "news-item";
+      const link = document.createElement("a");
+      link.href = a.url || "#";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = a.title || "Notícia sem título";
+      const meta = document.createElement("div");
+      meta.className = "news-meta";
+      meta.textContent = dominioBonito(a.url) || (a.sourcecountry || "");
+      item.append(link, meta);
+      box.appendChild(item);
+    }
+  } catch (e) {
+    box.innerHTML = '<div class="brief-muted">Não foi possível atualizar as notícias agora.</div>';
+  }
+}
+async function atualizarBriefing() {
+  if (briefingAtualizando) return;
+  briefingAtualizando = true;
+  try {
+    await Promise.all([obterClima(), obterCambio(), obterNoticias()]);
+  } finally {
+    briefingAtualizando = false;
+  }
+}
+document.querySelectorAll(".news-tab").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".news-tab").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    briefingCategoria = b.dataset.q;
+    obterNoticias();
+  });
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") fecharBriefing();
+});
 </script>
 </body>
 </html>

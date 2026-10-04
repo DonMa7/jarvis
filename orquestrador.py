@@ -358,6 +358,14 @@ class Orquestrador:
         memoria_estruturada = self.memoria_local.contexto(texto) if self.memoria_local else ""
         self.memoria_local.aprender(texto) if self.memoria_local else None
 
+        # Consultas simples que podem ser resolvidas com fatos persistentes não
+        # precisam sair do aparelho nem chegar ao provider externo.
+        if self.memoria_local:
+            resposta_memoria = self.memoria_local.resposta_contextual(texto)
+            if resposta_memoria:
+                cap = "persistent_memory"
+                return fim(resposta_memoria, "local", "memory_contextual_ok", True, "nucleo")
+
         # Fase 2.2: memória estruturada persistente. O dado fica no J7 e só é
         # anexado a um modelo quando ele estiver rodando localmente ou quando
         # a política permitir memória externa.

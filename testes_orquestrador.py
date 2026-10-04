@@ -100,7 +100,7 @@ class Testes(unittest.TestCase):
         self.assertEqual(ext.chamadas, 0)
 
     def test_fase2_contexto_semantico_e_conversao(self):
-        self.assertEqual(ferramenta_conversao("10 km para milhas"), "O resultado é 0.00621371192 mi.")
+        self.assertEqual(ferramenta_conversao("10 km para milhas"), "O resultado é 6.213711922 mi.")
         o, ext, _ = montar()
         o.responder("Meu monitor é 100 Hz.")
         self.assertEqual(o.contexto_local.contexto_minimo(), "domínio: monitor; entidades: 100 hz")

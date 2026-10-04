@@ -181,7 +181,12 @@ class MemoriaLocal:
         """Resolve perguntas simples usando memória local conhecida, sem recorrer a API."""
         n = _norm(texto).strip(" ?!.,")
         contexto = _norm(contexto_anterior)
-        e_monitor = "monitor" in n or "monitor" in contexto
+        novo_hardware = any(x in n for x in (
+            "processador", "cpu", "gpu", "placa de video", "placa grafica",
+            "ram", "memoria ram", "ssd", "hdd", "celular", "smartphone"
+        ))
+        referencia_monitor = any(x in n.split() for x in ("ele", "ela", "isso", "isto", "esse", "essa", "dele", "dela"))
+        e_monitor = "monitor" in n or ("monitor" in contexto and referencia_monitor and not novo_hardware)
         competitivo = "competitiv" in n or "competitiv" in contexto
         jogos = [nome for nome in ("warzone", "valorant") if nome in n]
         if e_monitor:

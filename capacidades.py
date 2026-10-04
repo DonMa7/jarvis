@@ -19,6 +19,7 @@ CAPACIDADES = {
     "device_control":   {"tipo": "frontend",   "desc": "Controle do aparelho/navegador"},
     "local_dialogue":   {"tipo": "ferramenta", "desc": "Conversação básica e continuidade local"},
     "copyright_request":{"tipo": "ferramenta", "desc": "Detecção local de pedidos de reprodução integral"},
+    "unit_conversion":  {"tipo": "ferramenta", "desc": "Conversões de unidades sem internet"},
     # --- texto: um modelo local pequeno pode resolver ---
     "conversation":     {"tipo": "modelo", "dados": "texto", "aviso": False, "desc": "Conversa geral"},
     "text_correction":  {"tipo": "modelo", "dados": "texto", "aviso": False, "desc": "Correção de ortografia e gramática"},
@@ -74,6 +75,90 @@ def minimizar_memoria(memoria, texto):
 def montar_mensagem(memoria, texto):
     return memoria + _SEP + texto if memoria else texto
 
+# ---------- ferramenta local: conversão de unidades ----------
+_UNIDADES = {
+    "comprimento": {
+        "mm": 0.001, "milimetro": 0.001, "milimetros": 0.001,
+        "cm": 0.01, "centimetro": 0.01, "centimetros": 0.01,
+        "m": 1.0, "metro": 1.0, "metros": 1.0,
+        "km": 1000.0, "quilometro": 1000.0, "quilometros": 1000.0,
+        "in": 0.0254, "inch": 0.0254, "polegada": 0.0254, "polegadas": 0.0254,
+        "ft": 0.3048, "feet": 0.3048, "pe": 0.3048, "pes": 0.3048,
+        "yd": 0.9144, "jarda": 0.9144, "jardas": 0.9144,
+        "mi": 1609.344, "milha": 1609.344, "milhas": 1609.344,
+    },
+    "massa": {
+        "mg": 0.001, "miligramo": 0.001, "miligramas": 0.001,
+        "g": 1.0, "grama": 1.0, "gramas": 1.0,
+        "kg": 1000.0, "quilo": 1000.0, "quilos": 1000.0, "quilograma": 1000.0, "quilogramas": 1000.0,
+        "t": 1000000.0, "tonelada": 1000000.0, "toneladas": 1000000.0,
+        "oz": 28.349523125, "onca": 28.349523125, "oncas": 28.349523125,
+        "lb": 453.59237, "libra": 453.59237, "libras": 453.59237,
+    },
+    "volume": {
+        "ml": 0.001, "mililitro": 0.001, "mililitros": 0.001,
+        "l": 1.0, "litro": 1.0, "litros": 1.0,
+        "m3": 1000.0, "metro cubico": 1000.0, "metros cubicos": 1000.0,
+    },
+    "dados": {
+        "b": 1.0, "byte": 1.0, "bytes": 1.0,
+        "kb": 1024.0, "kib": 1024.0,
+        "mb": 1024.0**2, "mib": 1024.0**2,
+        "gb": 1024.0**3, "gib": 1024.0**3,
+        "tb": 1024.0**4, "tib": 1024.0**4,
+    },
+    "tempo": {
+        "ms": 0.001, "milissegundo": 0.001, "milissegundos": 0.001,
+        "s": 1.0, "seg": 1.0, "segundo": 1.0, "segundos": 1.0,
+        "min": 60.0, "minuto": 60.0, "minutos": 60.0,
+        "h": 3600.0, "hora": 3600.0, "horas": 3600.0,
+        "d": 86400.0, "dia": 86400.0, "dias": 86400.0,
+    },
+}
+_DESTACADOS = {
+    "comprimento": {"m": "m", "km": "km", "cm": "cm", "mm": "mm", "mi": "mi", "ft": "ft", "in": "in"},
+    "massa": {"g": "g", "kg": "kg", "mg": "mg", "t": "t", "lb": "lb", "oz": "oz"},
+    "volume": {"l": "L", "ml": "mL", "m3": "m³"},
+    "dados": {"b": "B", "kb": "KB", "mb": "MB", "gb": "GB", "tb": "TB"},
+    "tempo": {"s": "s", "min": "min", "h": "h", "d": "dias"},
+}
+
+
+def _converter_numero(v):
+    return float(str(v).replace(",", "."))
+
+
+def ferramenta_conversao(texto):
+    """Converte unidades comuns sem rede. Retorna None se não reconhecer uma conversão."""
+    n = normalizar(texto)
+    n = re.sub(r"^(?:converta|converter|conversao|conversão|transforme|transformar)\s+", "", n)
+    m = re.search(r"(-?\d+(?:[.,]\d+)?)\s*([a-z0-9²³]+(?:\s+[a-z]+)?)\s+(?:para|em|pra|->|to)\s+([a-z0-9²³]+(?:\s+[a-z]+)?)\s*$", n)
+    if not m:
+        return None
+    valor = _converter_numero(m.group(1))
+    origem = m.group(2).strip()
+    destino = m.group(3).strip()
+
+    # Temperatura tem fórmula, não fator.
+    if origem in ("c", "celsius", "graus celsius") and destino in ("f", "fahrenheit", "graus fahrenheit"):
+        r = valor * 9 / 5 + 32
+        return "O resultado é %.6g °F." % r
+    if origem in ("f", "fahrenheit", "graus fahrenheit") and destino in ("c", "celsius", "graus celsius"):
+        r = (valor - 32) * 5 / 9
+        return "O resultado é %.6g °C." % r
+    if origem in ("c", "celsius", "graus celsius") and destino in ("k", "kelvin"):
+        return "O resultado é %.6g K." % (valor + 273.15)
+    if origem in ("k", "kelvin") and destino in ("c", "celsius", "graus celsius"):
+        return "O resultado é %.6g °C." % (valor - 273.15)
+
+    for grupo, unidades in _UNIDADES.items():
+        if origem in unidades and destino in unidades:
+            base = valor * unidades[origem]
+            resultado = base / unidades[destino]
+            destino_fmt = _DESTACADOS.get(grupo, {}).get(destino, destino)
+            return "O resultado é %.10g %s." % (resultado, destino_fmt)
+    return None
+
 # ---------- classificador de intenção (regras explícitas, sem depender de erro do modelo) ----------
 _REGRAS = [
     ("self_awareness",  r"\b(o que (voce|você) (consegue|pode|sabe) fazer|quais (sao|são) (as )?suas capacidades|suas capacidades|como voce (funciona|opera)|como você (funciona|opera))\b"),
@@ -88,6 +173,7 @@ def classificar(texto, tem_imagem=False, tem_documento=False):
     if tem_imagem: return "image_analysis"
     if tem_documento: return "advanced_document_analysis"
     if ferramenta_matematica(texto) is not None: return "basic_math"
+    if ferramenta_conversao(texto) is not None: return "unit_conversion"
     if pedido_reproducao_integral(texto): return "copyright_request"
     n = normalizar(texto)
     if _LOCAL_DIALOGUE.fullmatch(n): return "local_dialogue"
@@ -270,6 +356,6 @@ def ferramenta_busca_web(texto):
             break
     return "\\n".join(linhas) if numero else "Senhor, não encontrei resultados para essa pesquisa."
 
-FERRAMENTAS = {"basic_math": ferramenta_matematica}
+FERRAMENTAS = {"basic_math": ferramenta_matematica, "unit_conversion": ferramenta_conversao}
 # Ferramentas que usam internet sem IA. Etapa 3 da prioridade.
 FERRAMENTAS_INTERNET = {"web_search": ferramenta_busca_web}

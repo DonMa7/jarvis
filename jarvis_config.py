@@ -17,8 +17,11 @@ PADRAO = {
     "PERMITIR_ENVIO_DE_DOCUMENTOS": False,
     "PERMITIR_MEMORIA_EXTERNA": False,        # False = memória pessoal nunca é enviada ao provider externo por padrão
     "PERMITIR_HISTORICO_EXTERNO": False,      # False = histórico da conversa nunca é enviado ao provider externo por padrão
+    "MEMORIA_PERSISTENTE": True,              # memória estruturada fica somente no aparelho
+    "MAX_MEMORIAS": 100,                      # limite total de fatos persistentes
     # ---- providers ----
     "PROVIDER_EXTERNO": "nvidia",
+    "MEMORIA_LOCAL_PATH": "",                 # vazio = memoria_usuario.json ao lado do servidor
     "LOCAL_MODEL_URL": "",                    # vazio = sem modelo local (estado atual). Ex.: http://127.0.0.1:8088
     "LOCAL_MODEL_NOME": "local",
     "LOCAL_CAPACIDADES": ["conversation", "text_correction", "summarization", "translation"],

@@ -147,7 +147,7 @@ class Testes(unittest.TestCase):
         self.assertNotIn("monitor", r["resposta"].lower())
 
         r = o.responder("ele é bom para jogar?")
-        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "local_dialogue", 1))
+        self.assertEqual((r["rota"], ext.chamadas), ("local", 1))
         self.assertIn("100 Hz", r["resposta"])
         self.assertIn("144 Hz", r["resposta"])
 

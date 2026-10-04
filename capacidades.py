@@ -163,7 +163,7 @@ def ferramenta_conversao(texto):
 # ---------- classificador de intenção (regras explícitas, sem depender de erro do modelo) ----------
 _REGRAS = [
     ("self_awareness",  r"\b(o que (voce|você) (consegue|pode|sabe) fazer|quais (sao|são) (as )?suas capacidades|suas capacidades|como voce (funciona|opera)|como você (funciona|opera))\b"),
-    ("persistent_memory", r"\b(o que (voce|você) lembra( de mim)?|quais coisas voce lembra|mostre o que voce lembra|qual (e|é) (meu|minha) (monitor|processador|placa de video|placa grafica|celular))\b"),
+    ("persistent_memory", r"^(o que (voce|você) lembra( de mim)?|quais coisas voce lembra|mostre o que voce lembra|qual (e|é) (meu|minha) (monitor|processador|placa de video|placa grafica|celular))[?!.,\s]*$"),
     ("text_correction", r"\b(corrij\w*|corrig\w*|revis(e|ar|ao)\b.*\b(texto|ortografia|gramatica)|ortografia|gramatica)\b"),
     ("summarization",   r"\b(resum(a|e|ir|o)|sintetiz\w*)\b"),
     ("translation",     r"\b(traduz\w*|traduc\w*)\b"),

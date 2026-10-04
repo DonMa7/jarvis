@@ -342,8 +342,8 @@ let vozNativa = null;
 function atualizarVozNativa() {
   if (!SINTETIZADOR) return;
   const vozes = SINTETIZADOR.getVoices();
-  const ptbr = vozes.filter(v => /^pt-BR$/i.test(v.lang));
-  const pt = vozes.filter(v => /^pt[-_]/i.test(v.lang));
+  const ptbr = vozes.filter(v => String(v.lang || "").toLowerCase() === "pt-br");
+  const pt = vozes.filter(v => String(v.lang || "").toLowerCase().startsWith("pt-") || String(v.lang || "").toLowerCase().startsWith("pt_"));
   vozNativa = ptbr[0] || pt[0] || null;
 }
 if (SINTETIZADOR) {
@@ -352,10 +352,13 @@ if (SINTETIZADOR) {
 }
 
 function limparTextoParaVoz(texto) {
-  return texto.replace(/https?:\/\/\S+/g, "").replace(/[\*\_\#\~\^\<\>\{\}=\\\|]/g, " ").replace(/\s+/g, " ").trim();
+  let s = String(texto || "");
+  s = s.split("http://").join(" ").split("https://").join(" ");
+  for (const ch of ["*", "_", "#", "~", "^", "<", ">", "{", "}", "=", "\\", "|"]) s = s.split(ch).join(" ");
+  return s.split(/\s+/).filter(Boolean).join(" ").trim();
 }
 function dividirEmFrases(texto) {
-  return texto.split(/(?<=[.!?])\s+/).map(f => f.trim()).filter(Boolean);
+  return String(texto || "").replaceAll(". ", ".|||").replaceAll("! ", "!|||").replaceAll("? ", "?|||").split("|||").map(f => f.trim()).filter(Boolean);
 }
 function alternarVoz() {
   vozAtiva = !vozAtiva;

@@ -7,6 +7,7 @@ import capacidades
 from capacidades import classificar, ferramenta_conversao, minimizar_memoria, separar_memoria
 from jarvis_config import carregar
 from orquestrador import M_OFFLINE, M_SEM_PRV, Orquestrador
+from memoria_local import MemoriaLocal
 from provider_base import Provider, ProviderErro
 from provider_local import LocalModel
 
@@ -47,7 +48,7 @@ class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
         casos = {"JARVIS, o que você consegue fazer?": "self_awareness", "JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
-                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request", "queria a letra de Asa Branca": "copyright_request", "gostaria da letra de Asa Branca": "copyright_request", "10 km para milhas": "unit_conversion"}
+                 "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation", "por quê?": "local_dialogue", "como assim?": "local_dialogue", "obrigado": "local_dialogue", "me mande a letra de Asa Branca": "copyright_request", "queria a letra de Asa Branca": "copyright_request", "gostaria da letra de Asa Branca": "copyright_request", "10 km para milhas": "unit_conversion", "o que você lembra de mim": "persistent_memory", "qual é meu monitor": "persistent_memory"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
         self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)
@@ -98,6 +99,33 @@ class Testes(unittest.TestCase):
         r = o.responder("por quê?")
         self.assertEqual(r["rota"], "local")
         self.assertEqual(ext.chamadas, 0)
+
+    def test_fase22_memoria_estruturada_persistente(self):
+        caminho = os.path.join(tempfile.mkdtemp(), "memoria.json")
+        mem = MemoriaLocal(caminho)
+        self.assertTrue(mem.lembrar("monitor", "monitor", "100 Hz"))
+        self.assertTrue(mem.lembrar("pc", "gpu", "RTX 2060"))
+        self.assertIn("100 Hz", mem.contexto("qual a taxa do meu monitor"))
+        mem2 = MemoriaLocal(caminho)
+        self.assertEqual(mem2.todas()["pc"]["gpu"], "RTX 2060")
+
+        o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho)
+        r = o.responder("qual é meu monitor")
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 0))
+        self.assertIn("100 Hz", r["resposta"])
+
+        r = o.responder("o que você lembra de mim")
+        self.assertEqual(r["rota"], "local")
+        self.assertIn("RTX 2060", r["resposta"])
+
+        o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho)
+        o.responder("isso é melhor que meu monitor?")
+        self.assertEqual(ext.chamadas, 1)
+        self.assertNotIn("100 Hz", ext.ultimo[0])
+
+        o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho, PERMITIR_MEMORIA_EXTERNA=True)
+        o.responder("isso é melhor que meu monitor?")
+        self.assertIn("100 Hz", ext.ultimo[0])
 
     def test_fase2_contexto_semantico_e_conversao(self):
         self.assertEqual(ferramenta_conversao("10 km para milhas"), "O resultado é 6.213711922 milhas.")

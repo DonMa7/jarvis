@@ -46,10 +46,12 @@ def montar(local=None, ext=None, internet=True, **cfg):
 class Testes(unittest.TestCase):
     # ---------- núcleo ----------
     def test_classificador(self):
-        casos = {"quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
+        casos = {"JARVIS, pesquise na internet quem é o atual presidente do Brasil": "web_search", "quanto é 25 vezes 18": "basic_math", "20% de 500": "basic_math", "corrija a ortografia deste texto": "text_correction", "resuma isto": "summarization",
                  "traduza para inglês": "translation", "analise este código python": "complex_code_analysis", "oi, tudo bem?": "conversation", "quanto é a capital da França": "conversation"}
         for t, c in casos.items(): self.assertEqual(classificar(t), c, t)
         self.assertEqual(classificar("o que é isso?", tem_imagem=True), "image_analysis"); self.assertEqual(classificar("leia", tem_documento=True), "advanced_document_analysis")
+        self.assertIn("web_search", capacidades.FERRAMENTAS_INTERNET)
+        self.assertNotIn("web_search", capacidades.FERRAMENTAS)
 
     def test_ferramenta_local_sem_api(self):
         o, ext, _ = montar()
@@ -63,6 +65,14 @@ class Testes(unittest.TestCase):
         loc = FakeLocal(True, extras={"basic_math"}); o, ext, _ = montar(local=loc); self.assertEqual(o.responder("2+2")["rota"], "local")      # LOCAL antes de FERRAMENTA
         # 2) sem modelo local: FERRAMENTA
         o, ext, _ = montar(); self.assertEqual(o.responder("2+2")["rota"], "ferramenta")
+        # 2b) busca web: INTERNET antes da NVIDIA
+        capacidades.FERRAMENTAS_INTERNET["web_search"] = lambda t: "WEB: resultado"
+        try:
+            o, ext, _ = montar(); r = o.responder("JARVIS, pesquise na internet quem é o presidente do Brasil")
+            self.assertEqual((r["rota"], r["provider"], ext.chamadas), ("internet", "internet", 0))
+            self.assertEqual(r["resposta"], "WEB: resultado")
+        finally:
+            capacidades.FERRAMENTAS_INTERNET.pop("web_search", None)
         # 3) INTERNET (sem IA) antes da NVIDIA
         capacidades.FERRAMENTAS_INTERNET["conversation"] = lambda t: "WEB: ok"
         try:
@@ -195,6 +205,20 @@ class Testes(unittest.TestCase):
         t0 = time.time(); st = chamar("GET", "/")[0]; dt = time.time() - t0; t.join()
         self.assertEqual(st, 200); self.assertLess(dt, 0.8, "GET / deveria responder enquanto a NVIDIA ainda processa")
 
+
+    def test_busca_web_parseia_resultados(self):
+        class FakeResp:
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+            def read(self): return b'<a class="result__a" href="https://exemplo.com">Titulo de teste</a>'
+        original = capacidades.urllib.request.urlopen
+        capacidades.urllib.request.urlopen = lambda *a, **k: FakeResp()
+        try:
+            r = capacidades.ferramenta_busca_web("JARVIS, pesquise na internet teste")
+            self.assertIn("Titulo de teste", r)
+            self.assertIn("https://exemplo.com", r)
+        finally:
+            capacidades.urllib.request.urlopen = original
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

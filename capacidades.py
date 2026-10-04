@@ -169,6 +169,22 @@ _REGRAS = [
     ("advanced_reasoning", r"\b(demonstre|prove que|raciocin\w*|analise detalhada|passo a passo.*(logic|matematic|problema))\b"),
     ("web_search", r"\b(pesquis\w*|procure|busque|buscar|pesquisa|na internet|ultimas? noticias|noticias sobre|o que aconteceu hoje|cotacao|preco atual)\b"),
 ]
+
+def _eh_seguimento_referencial(n):
+    partes = n.strip().split()
+    if not partes:
+        return False
+    p0 = partes[0].rstrip("?!.,")
+    if p0 in {"isso", "isto", "esse", "essa", "ele", "ela", "eles", "elas"}:
+        return True
+    if p0 == "e" and len(partes) >= 2:
+        p1 = partes[1].rstrip("?!.,")
+        return p1 in {"a", "o", "as", "os", "essa", "esse", "esta", "este", "isso", "isto", "ele", "ela", "eles", "elas", "aquele", "aquela"}
+    if p0 == "mas" and len(partes) >= 3 and partes[1].rstrip("?!.,") == "e":
+        p2 = partes[2].rstrip("?!.,")
+        return p2 in {"a", "o", "essa", "esse", "isso", "ele", "ela"}
+    return False
+
 def classificar(texto, tem_imagem=False, tem_documento=False):
     if tem_imagem: return "image_analysis"
     if tem_documento: return "advanced_document_analysis"
@@ -176,7 +192,7 @@ def classificar(texto, tem_imagem=False, tem_documento=False):
     if ferramenta_conversao(texto) is not None: return "unit_conversion"
     if pedido_reproducao_integral(texto): return "copyright_request"
     n = normalizar(texto)
-    if _LOCAL_DIALOGUE.fullmatch(n) or re.match(r"^(e (a|o|as|os|essa|esse|esta|este|isso|isto|ele|ela|eles|elas|aquele|aquela)\\b|mas e (a|o|essa|esse|isso|ele|ela)\\b|isso |isto |esse |essa |ele |ela |eles |elas )", n): return "local_dialogue"
+    if _LOCAL_DIALOGUE.fullmatch(n) or _eh_seguimento_referencial(n): return "local_dialogue"
     if texto.count("```") >= 2 and len(texto) > 300: return "complex_code_analysis"
     for cap, rx in _REGRAS:
         if re.search(rx, n): return cap

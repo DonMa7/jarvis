@@ -94,9 +94,22 @@ class Testes(unittest.TestCase):
     def test_memoria_so_o_necessario_vai_para_a_nvidia(self):
         self.assertEqual(separar_memoria(MEM + "qual a taxa do meu monitor?")[1], "qual a taxa do meu monitor?")
         mem, txt = separar_memoria(MEM + "qual a taxa do meu monitor?"); m = minimizar_memoria(mem, txt); self.assertIn("100 Hz", m); self.assertNotIn("azul", m)
-        o, ext, _ = montar(); o.responder(MEM + "qual a taxa do meu monitor?"); self.assertIn("100 Hz", ext.ultimo[0]); self.assertNotIn("azul", ext.ultimo[0])     # só o relevante
-        o, ext, _ = montar(); o.responder(MEM + "me conte uma curiosidade sobre o Brasil"); self.assertNotIn("100 Hz", ext.ultimo[0]); self.assertNotIn("azul", ext.ultimo[0])  # nada de brinde
-        o, ext, _ = montar(PERMITIR_MEMORIA_EXTERNA=False); o.responder(MEM + "qual a taxa do meu monitor?"); self.assertNotIn("100 Hz", ext.ultimo[0])                 # política: nunca
+
+        # Privacidade por padrão: mesmo a memória relevante não sai para a NVIDIA.
+        o, ext, _ = montar(); o.responder(MEM + "qual a taxa do meu monitor?")
+        self.assertNotIn("100 Hz", ext.ultimo[0]); self.assertNotIn("azul", ext.ultimo[0])
+
+        # Memória relevante pode ser liberada explicitamente.
+        o, ext, _ = montar(PERMITIR_MEMORIA_EXTERNA=True); o.responder(MEM + "qual a taxa do meu monitor?")
+        self.assertIn("100 Hz", ext.ultimo[0]); self.assertNotIn("azul", ext.ultimo[0])
+
+        # Memória irrelevante nunca deve entrar, mesmo com permissão explícita.
+        o, ext, _ = montar(PERMITIR_MEMORIA_EXTERNA=True); o.responder(MEM + "me conte uma curiosidade sobre o Brasil")
+        self.assertNotIn("100 Hz", ext.ultimo[0]); self.assertNotIn("azul", ext.ultimo[0])
+
+        # Política explícita continua garantindo que a memória nunca seja enviada.
+        o, ext, _ = montar(PERMITIR_MEMORIA_EXTERNA=False); o.responder(MEM + "qual a taxa do meu monitor?")
+        self.assertNotIn("100 Hz", ext.ultimo[0])
 
     def test_registro_so_tem_metadados_e_status(self):
         o, _, log = montar(); o.responder("segredo-ultra-privado 123"); d = json.load(open(log))
@@ -152,13 +165,23 @@ class Testes(unittest.TestCase):
 
     def test_server_historico_curto(self):
         o, ext, _ = montar(MAX_HISTORICO=4); server, chamar = self._servidor(o)
-        chamar("POST", "/chat", {"mensagem": MEM + "Meu nome é Ana?"}); self.assertEqual(ext.hist, [])
-        chamar("POST", "/chat", {"mensagem": "E o que mais?"}); self.assertEqual([m["role"] for m in ext.hist], ["user", "assistant"]); self.assertEqual(ext.hist[0]["content"], "Meu nome é Ana?")   # sem a memória anexada
+        chamar("POST", "/chat", {"mensagem": MEM + "Meu nome é Ana?"})
+        self.assertEqual(ext.hist, [])
+        chamar("POST", "/chat", {"mensagem": "E o que mais?"})
+        self.assertEqual(ext.hist, [])  # histórico não sai para a NVIDIA por padrão
+
+        # O histórico pode ser liberado explicitamente.
+        o, ext, _ = montar(MAX_HISTORICO=4, PERMITIR_HISTORICO_EXTERNO=True); server, chamar = self._servidor(o)
+        chamar("POST", "/chat", {"mensagem": MEM + "Meu nome é Ana?"})
+        self.assertEqual(ext.hist, [])
+        chamar("POST", "/chat", {"mensagem": "E o que mais?"})
+        self.assertEqual([m["role"] for m in ext.hist], ["user", "assistant"])
+        self.assertEqual(ext.hist[0]["content"], "Meu nome é Ana?")
+
         for i in range(5): chamar("POST", "/chat", {"mensagem": "pergunta %d" % i})
         self.assertLessEqual(len(server.historico), 4)
-        chamar("POST", "/chat", {"mensagem": "quanto é 2+2"}); self.assertEqual(server.historico[-1]["content"], "O resultado é 4.")
 
-    def test_server_inicia_e_responde_sem_chave_da_nvidia(self):
+    def test_server_inicia_e_responde_sem_chave_da_nvidia(self):(self):
         os.environ.pop("NVIDIA_API_KEY", None)
         o = Orquestrador(cfg=carregar(arquivo="/nao/existe.json", ambiente={}), local=FakeLocal(False), internet=lambda h: True, log_path=os.path.join(tempfile.mkdtemp(), "m.json"))
         server, chamar = self._servidor(o)

@@ -222,7 +222,7 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
 <script>
 // ===== CONFIGURAÇÃO =====
 const API_CHAT = "https://flickr-suspended-launch-joseph.trycloudflare.com/chat";   // servidor da IA
-const API_VOZ  = "http://127.0.0.1:8765";            // servidor de voz (roda no MESMO aparelho do navegador)
+const API_VOZ  = null;                                      // voz reproduzida pelo próprio navegador
 const CHAT_STORAGE = "jarvis_chat";
 const MAX_HISTORICO = 100;
 const PAUSA_FRASE_MS = 350;   // pausa entre frases faladas (0 desativa); "?" e "!" ganham +100 ms
@@ -336,24 +336,43 @@ async function enviarMensagem() {
 let vozAtiva = true;
 let filaDeVoz = [];
 let falando = false;
+const SINTETIZADOR = "speechSynthesis" in window ? window.speechSynthesis : null;
+let vozNativa = null;
+
+function atualizarVozNativa() {
+  if (!SINTETIZADOR) return;
+  const vozes = SINTETIZADOR.getVoices();
+  const ptbr = vozes.filter(v => /^pt-BR$/i.test(v.lang));
+  const pt = vozes.filter(v => /^pt(-|_)/i.test(v.lang));
+  vozNativa =
+    ptbr.find(v => /google|microsoft|brasil|portugu/i.test(v.name)) ||
+    ptbr[0] ||
+    pt.find(v => /google|microsoft|brasil|portugu/i.test(v.name)) ||
+    pt[0] ||
+    null;
+}
+if (SINTETIZADOR) {
+  atualizarVozNativa();
+  if ("onvoiceschanged" in SINTETIZADOR) SINTETIZADOR.onvoiceschanged = atualizarVozNativa;
+}
 
 function limparTextoParaVoz(texto) {
   const regras = [
-    [/```[\s\S]*?```/g, ""],           // blocos de código
-    [/\[([^\]]+)\]\([^)]+\)/g, "$1"],  // links
-    [/^#{1,6}\s*/gm, ""],              // títulos
-    [/\*\*(.*?)\*\*/g, "$1"],          // negrito
+    [/\`\`\`[\s\S]*?\`\`\`/g, ""],
+    [/\[([^\]]+)\]\([^)]+\)/g, "$1"],
+    [/^#{1,6}\s*/gm, ""],
+    [/\*\*(.*?)\*\*/g, "$1"],
     [/\b__(.+?)__\b/g, "$1"],
-    [/\*(.*?)\*/g, "$1"],              // itálico
-    [/\b_(.+?)_\b/g, "$1"],            // (não quebra snake_case)
-    [/`([^`]+)`/g, "$1"],              // código inline
-    [/^\|.*\|$/gm, ""],                // tabelas
-    [/^\s*[-*+]\s+/gm, ""],            // listas
+    [/\*(.*?)\*/g, "$1"],
+    [/\b_(.+?)_\b/g, "$1"],
+    [/\`([^\`]+)\`/g, "$1"],
+    [/^\|.*\|$/gm, ""],
+    [/^\s*[-*+]\s+/gm, ""],
     [/^\s*\d+\.\s+/gm, ""],
-    [/https?:\/\/\S+/g, ""],          // URLs
-    [/<[^>]+>/g, ""],                  // tags HTML
-    [/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, ""],   // emojis e setas
-    [/[#~^<>{}=\\]/g, " "],           // símbolos soltos
+    [/https?:\/\/\S+/g, ""],
+    [/<[^>]+>/g, ""],
+    [/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, ""],
+    [/[#~^<>{}=\\]/g, " "],
     [/\|/g, " "],
     [/[ \t]+/g, " "],
     [/\n{2,}/g, "\n"]
@@ -363,15 +382,18 @@ function limparTextoParaVoz(texto) {
   return limpo.trim();
 }
 
-// Sem lookbehind (quebrava em navegadores/WebViews antigos e derrubava o script inteiro)
-// Frases com mais de 110 caracteres são quebradas em vírgulas/dois-pontos (trechos de ~45+ caracteres) para a fala começar mais cedo
 function quebrarLonga(f) {
   if (f.length <= 110) return [f];
-  const out = []; let acc = "";
-  for (const p of f.replace(/([,;:])\s+/g, "$1\n").split("\n")) { acc = acc ? acc + " " + p : p; if (acc.length >= 45) { out.push(acc); acc = ""; } }
+  const out = [];
+  let acc = "";
+  for (const p of f.replace(/([,;:])\s+/g, "$1\n").split("\n")) {
+    acc = acc ? acc + " " + p : p;
+    if (acc.length >= 45) { out.push(acc); acc = ""; }
+  }
   if (acc) out.push(acc);
   return out;
 }
+
 function dividirEmFrases(texto) {
   return texto
     .replace(/([.!?])\s+/g, "$1\n")
@@ -381,276 +403,63 @@ function dividirEmFrases(texto) {
     .flatMap(quebrarLonga);
 }
 
-async function alternarVoz() {
+function alternarVoz() {
   vozAtiva = !vozAtiva;
   $("voice-button").textContent = vozAtiva ? "🔊 VOZ ON" : "🔇 VOZ OFF";
-  if (vozAtiva) return;
-
-  filaDeVoz = [];
-  try {
-    await fetch(API_VOZ + "/parar", { method: "POST" });
-  } catch (erro) {
-    console.error("Erro ao parar a voz:", erro);
+  if (!vozAtiva) {
+    filaDeVoz = [];
+    if (SINTETIZADOR) SINTETIZADOR.cancel();
+    falando = false;
+    document.body.classList.remove("jarvis-falando");
   }
-  document.body.classList.remove("jarvis-falando");
 }
 
-async function processarFilaDeVoz() {
-  if (falando) return;
+function processarFilaDeVoz() {
+  if (!SINTETIZADOR || falando) return;
   falando = true;
-  try {
-    while (filaDeVoz.length > 0 && vozAtiva) {
-      const frase = filaDeVoz.shift();
-      document.body.classList.add("jarvis-falando");
-      try {
-        await fetch(API_VOZ + "/falar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ texto: frase, proximas: filaDeVoz.slice(0, 2) })   /* pré-síntese (v6) */
-        });
-      } catch (erro) {
-        console.error("Erro no servidor de voz:", erro);
-        filaDeVoz = [];   // servidor de voz fora do ar: não tenta todas as frases
-      }
-      // Pausa natural entre frases (cadência calma do JARVIS)
-      if (PAUSA_FRASE_MS && filaDeVoz.length && vozAtiva)
-        await new Promise(r => setTimeout(r, /[,;:]$/.test(frase) ? 120 : PAUSA_FRASE_MS + (/[?!]$/.test(frase) ? 100 : 0)));
+  const falarProxima = () => {
+    if (!vozAtiva || !filaDeVoz.length) {
+      falando = false;
+      document.body.classList.remove("jarvis-falando");
+      return;
     }
-  } finally {
-    document.body.classList.remove("jarvis-falando");
-    falando = false;
-  }
+
+    const frase = filaDeVoz.shift();
+    const u = new SpeechSynthesisUtterance(frase);
+    u.lang = "pt-BR";
+    if (vozNativa) u.voice = vozNativa;
+    u.rate = 0.96;
+    u.pitch = 0.88;
+    u.volume = 1.0;
+
+    u.onstart = () => document.body.classList.add("jarvis-falando");
+    u.onend = () => {
+      const pausa = /[,;:]$/.test(frase) ? 120 : PAUSA_FRASE_MS + (/[?!]$/.test(frase) ? 100 : 0);
+      setTimeout(falarProxima, filaDeVoz.length && vozAtiva ? pausa : 0);
+    };
+    u.onerror = (e) => {
+      console.error("Erro no SpeechSynthesis:", e);
+      falarProxima();
+    };
+    SINTETIZADOR.speak(u);
+  };
+  falarProxima();
 }
 
 function falarComoJarvis(texto) {
-  if (!vozAtiva) return;
-  filaDeVoz.push(...dividirEmFrases(limparTextoParaVoz(texto)));
+  if (!vozAtiva || !SINTETIZADOR) return;
+  const limpo = limparTextoParaVoz(texto);
+  if (!limpo) return;
+  filaDeVoz.push(...dividirEmFrases(limpo));
   processarFilaDeVoz();
 }
 
-// ===== INICIALIZAÇÃO =====
-carregarChat();
-
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter") enviarMensagem();
-});
-
-window.addEventListener("beforeunload", () => {
-  if (SINTETIZADOR) SINTETIZADOR.cancel();
-});
-</script>
-<script>
-function relogio() {
-  const d = new Date();
-  $("hora").textContent = d.toLocaleTimeString("pt-BR");
-  $("data").textContent = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" }).toUpperCase();
-}
-relogio(); setInterval(relogio, 1000);
-</script>
-<script>
-// ===== v3: NOVOS RECURSOS (tudo local, nenhuma chamada extra à API) =====
-// Saudação conforme o horário (só texto local, não passa pela IA)
-const saudacao = () => { const h = new Date().getHours(); return (h < 5 ? "Boa madrugada" : h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite") + ", senhor. Todos os sistemas estão operacionais. Tomei a liberdade de manter tudo em ordem enquanto o senhor esteve ausente."; };
-const fmtHora = ts => new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-const rolarParaBaixo = () => { chat.scrollTop = chat.scrollHeight; };
-
-// --- Copiar (com fallback para http/WebViews sem clipboard API) ---
-async function copiarTexto(t, btn) {
-  try { await navigator.clipboard.writeText(t); }
-  catch (e) {
-    const a = document.createElement("textarea"); a.value = t; a.style.cssText = "position:fixed;opacity:0";
-    document.body.appendChild(a); a.select(); try { document.execCommand("copy"); } catch (_) {} a.remove();
-  }
-  const o = btn.textContent; btn.textContent = "COPIADO ✓"; setTimeout(() => btn.textContent = o, 1400);
-}
-function criarBotaoCopiar(fn) {
-  const b = document.createElement("button"); b.className = "mini"; b.textContent = "COPIAR";
-  b.onclick = () => fn(b); return b;
-}
-
-// --- Horário, botão copiar e blocos de código de cada mensagem ---
-function decorarMensagem(div, texto, classe, ts) {
-  div.querySelectorAll("pre").forEach(pre => {
-    const code = pre.querySelector("code");
-    const lang = ((code && code.className.match(/language-(\w+)/)) || [])[1] || "código";
-    const w = document.createElement("div"); w.className = "codigo";
-    const topo = document.createElement("div"); topo.className = "cod-topo";
-    const l = document.createElement("span"); l.textContent = lang.toUpperCase();
-    topo.append(l, criarBotaoCopiar(b => copiarTexto(pre.textContent, b)));
-    pre.replaceWith(w); w.append(topo, pre);
-  });
-  const meta = document.createElement("div"); meta.className = "meta";
-  const t = document.createElement("time"); t.textContent = fmtHora(ts); meta.appendChild(t);
-  if (classe === "jarvis") meta.appendChild(criarBotaoCopiar(b => copiarTexto(texto, b)));
-  div.appendChild(meta);
-}
-
-// --- Latência: cor + mini gráfico das últimas 12 respostas ---
-const latencias = [];
-function registrarLatencia(ms) {
-  latencias.push(ms); if (latencias.length > 12) latencias.shift();
-  const max = Math.max(...latencias, 1);
-  $("grafico-lat").innerHTML = latencias.map(v => '<i style="height:' + Math.max(10, v / max * 100) + '%"></i>').join("");
-  $("latencia").className = "info-value " + (ms < 1000 ? "online" : ms < 3000 ? "medio" : "offline");
-}
-
-// --- Dispositivo (apenas dados que o navegador já expõe, sem permissões) ---
-function detectarDispositivo() {
-  const ua = navigator.userAgent;
-  const nav = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Desconhecido";
-  const so = /Windows/.test(ua) ? "Windows" : /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iOS" : /Mac OS X/.test(ua) ? "macOS" : /CrOS/.test(ua) ? "ChromeOS" : /Linux/.test(ua) ? "Linux" : "Desconhecido";
-  return { nav, so, tela: screen.width + "×" + screen.height, idioma: navigator.language, toque: navigator.maxTouchPoints > 0 ? "sim" : "não" };
-}
-
-// --- Cronômetro e temporizador ---
-const cron = { ini: 0, acc: 0 }, timer = { fim: 0 };
-const cronMs = () => cron.acc + (cron.ini ? Date.now() - cron.ini : 0);
-function fmtDur(ms) {
-  ms = Math.max(0, Math.round(ms / 1000));
-  const h = Math.floor(ms / 3600), m = Math.floor(ms % 3600 / 60), s = ms % 60, p = n => String(n).padStart(2, "0");
-  return (h ? p(h) + ":" : "") + p(m) + ":" + p(s);
-}
-function beep() {
-  try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
-    o.connect(g); g.connect(c.destination); g.gain.value = .15; o.frequency.value = 880; o.start(); o.stop(c.currentTime + .5); } catch (e) {}
-}
-function fimTimer() {
-  timer.fim = 0; beep(); if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
-  alertaVisual("⏰ O temporizador chegou ao fim.", "O temporizador chegou ao fim, senhor.");
-}
-
-// --- Calculadora segura (sem eval) ---
-function calcular(src) {
-  const s = src.replace(/(\d),(\d)/g, "$1.$2").replace(/[x×]/gi, "*").replace(/÷/g, "/").replace(/\s+/g, "");
-  const tk = s.match(/\d+\.?\d*|\*\*|[-+*/^%()]/g) || [];
-  if (!tk.length || tk.join("") !== s) throw 0;
-  let i = 0; const pk = () => tk[i], nx = () => tk[i++];
-  const post = v => { while (pk() === "%") { nx(); v /= 100; } return v; };
-  const prim = () => { const t = nx();
-    if (t === "(") { const v = soma(); if (nx() !== ")") throw 0; return post(v); }
-    if (t === "-") return -pot(); if (t === "+") return pot();
-    if (!/^\d/.test(t || "")) throw 0; return post(parseFloat(t)); };
-  const pot = () => { const b = prim(); if (pk() === "^" || pk() === "**") { nx(); return Math.pow(b, pot()); } return b; };
-  const mul = () => { let v = pot(); while (pk() === "*" || pk() === "/") v = nx() === "*" ? v * pot() : v / pot(); return v; };
-  const soma = () => { let v = mul(); while (pk() === "+" || pk() === "-") v = nx() === "+" ? v + mul() : v - mul(); return v; };
-  const r = soma(); if (i < tk.length || !isFinite(r)) throw 0; return r;
-}
-
-// ================================
-// JARVIS COMMANDS (registro central)
-// ================================
-// Para criar um comando novo, basta adicionar um item:
-//   cat   = categoria na central de ajuda   ajuda = exemplo mostrado na ajuda (omita para ocultar)
-//   re    = regex testada no texto normalizado (minúsculo, sem acento, sem "jarvis,")
-//   run   = (n, m, texto) => [markdown, fala] | null (null = ignora e tenta o próximo comando)
-// Mensagens que nenhum comando reconhece seguem para a IA normalmente.
-const SITES = { youtube: "https://www.youtube.com", google: "https://www.google.com", gmail: "https://mail.google.com", github: "https://github.com",
-  whatsapp: "https://web.whatsapp.com", instagram: "https://www.instagram.com", facebook: "https://www.facebook.com", twitter: "https://x.com", x: "https://x.com",
-  wikipedia: "https://pt.wikipedia.org", maps: "https://maps.google.com", netflix: "https://www.netflix.com", spotify: "https://open.spotify.com",
-  groq: "https://console.groq.com", drive: "https://drive.google.com", "google drive": "https://drive.google.com", tradutor: "https://translate.google.com",
-  chatgpt: "https://chatgpt.com", linkedin: "https://www.linkedin.com", reddit: "https://www.reddit.com", twitch: "https://www.twitch.tv", telegram: "https://web.telegram.org" };
-
-const JARVIS_PESQUISA = null;   // FUTURO: async (consulta) => texto. Enquanto for null, "pesquise ..." não inventa resposta.
-const lembretes = [];           // lembretes ativos {fim, texto}
-
-function avisarLocal(md, fala) { adicionarMensagem(md, "jarvis"); if (fala) falarComoJarvis(fala); }
-function lerDuracao(n) {
-  let ms = 0; n.replace(/(\d+(?:[.,]\d+)?)\s*(horas?|h|minutos?|min|segundos?|seg|s)\b/g, (_, v, u) => { v = parseFloat(v.replace(",", ".")); ms += v * (/^h/.test(u) ? 3600e3 : /^m/.test(u) ? 60e3 : 1e3); });
-  return ms;
-}
-function falaDur(ms) {
-  const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60, p = [];
-  if (h) p.push(h + (h > 1 ? " horas" : " hora")); if (m) p.push(m + (m > 1 ? " minutos" : " minuto")); if (x) p.push(x + (x > 1 ? " segundos" : " segundo"));
-  return p.join(" e ") || "0 segundo";
-}
-const semPrefixo = t => t.replace(/^\s*(?:(?:ei|oi|olá|ola)\s+)?jarvis[,:\s]+/i, "");
-const fmtNum = v => v.toLocaleString("pt-BR", { maximumFractionDigits: 10 });
-
-const JARVIS_COMMANDS = [
-  { cat: "SISTEMA", ajuda: "que horas são?", re: /\b(que horas|horas sao|hora atual|que hora e)\b/,
-    run: () => { const a = new Date(); return ["🕒 Agora são **" + fmtHora(a) + "**.", "Agora são " + a.getHours() + " horas e " + a.getMinutes() + " minutos."]; } },
-  { cat: "SISTEMA", ajuda: "que dia é hoje?", re: /(que dia (e )?hoje|qual (e )?a data|data (de )?hoje|data atual|que data)/,
-    run: () => { const d = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); return ["📅 Hoje é **" + d + "**.", "Hoje é " + d + "."]; } },
-  { cat: "SISTEMA", ajuda: "ajuda", re: /^(ajuda|help|comandos|central de comandos|o que voce (sabe|pode) fazer)$/,
-    run: () => { mostrarAjuda(); return ["Central de comandos aberta.", ""]; } },
-  { cat: "SISTEMA", ajuda: "diagnóstico", re: /\bdiagnostico\b/,
-    run: () => { executarDiagnostico(); return ["Iniciando diagnóstico completo.", ""]; } },
-  { cat: "SISTEMA", ajuda: "status", re: /^(status|status do sistema|relatorio do sistema)$/,
-    run: () => { const s = coletarSistema(), r = k => rotulo(k).rot, ok = estado.ia === "o";
-      return ["| Item | Valor |\n|---|---|\n| Sistema operacional | " + s.so + " |\n| Navegador | " + s.nav + " |\n| Resolução | " + s.res + " |\n| CPU threads | " + s.cpu + " |\n| Memória (aprox.) | " + s.mem + " |\n| Rede | " + s.rede + " |\n| IA | " + r("ia") + " |\n| Voz | " + r("voz") + " |\n| Microfone | " + r("mic") + " |",
-        ok ? "Todos os sistemas principais estão operacionais." : "Há sistemas que precisam de atenção. Recomendo um diagnóstico."]; } },
-  { cat: "SISTEMA", ajuda: "informações do dispositivo", re: /(informacoes|info|dados).*(dispositivo|navegador|aparelho|sistema)|^(qual|que) (e )?(o )?(meu )?(navegador|sistema|dispositivo)/,
-    run: () => { const d = detectarDispositivo();
-      return ["| Item | Valor |\n|---|---|\n| Navegador | " + d.nav + " |\n| Sistema | " + d.so + " |\n| Tela | " + d.tela + " |\n| Idioma | " + d.idioma + " |\n| Toque | " + d.toque + " |", "Você está usando " + d.nav + " no " + d.so + "."]; } },
-  { cat: "VOZ", ajuda: "silêncio · pare de falar", re: /^(pare de falar|pare|cala( a boca)?|silencio|fica quieto|cale-se|cale se)$/,
-    run: () => { pararFala(); return ["🔇 Fala interrompida.", ""]; } },
-  { cat: "VOZ", ajuda: "falar olá mundo", re: /^(?:fale|falar|repita)\s+(.+)$/,
-    run: (n, m, t) => { const x = t.replace(/^(?:fale|falar|repita)\s+/i, ""); return [x, x]; } },
-  { cat: "MEMÓRIA", ajuda: "mostrar memória", re: /^(?:(?:mostre|mostrar|exiba|exibir|liste|listar|ver|quais sao)\b.*?)?memorias?$/,
-    run: () => { const mem = lerMem(); return [mem.length ? "### Memória local\n\n" + mem.map(x => "- **" + x.sujeito + "**: " + x.valor).join("\n") : "A memória local está vazia.", ""]; } },
-  { cat: "TEMPO", ajuda: "me lembre daqui a 10 minutos de beber água", re: /(me lembre|me lembra|lembre-me|lembre me|me avise|me avisa)\b.*\b(daqui a|daqui|em|dentro de)\s+\d/,
-    run: (n, m, t) => { const ms = lerDuracao(n); if (!ms) return null;
-      const msg = t.replace(/^(?:me lembre|me lembra|lembre-me|lembre me|me avise|me avisa)\s*/i, "").replace(/(?:daqui a|daqui|dentro de|em)\s+\d+(?:[.,]\d+)?\s*(?:horas?|h|minutos?|min|segundos?|seg|s)\b(?:\s+e\s+\d+(?:[.,]\d+)?\s*(?:horas?|h|minutos?|min|segundos?|seg|s)\b)*/ig, "").replace(/^\s*(?:de|para|que)\s+/i, "").replace(/[.!?]+$/, "").trim() || "o que o senhor pediu";
-      lembretes.push({ fim: Date.now() + ms, texto: msg }); pedirNotificacao();   // pede permissão só aqui, uma única vez
-      return ["⏰ Combinado. Lembrete em **" + fmtDur(ms) + "**: " + msg + ". (Mantenha esta página aberta.)", "Combinado. Lembrete em " + falaDur(ms) + "."]; } },
-  { cat: "MEMÓRIA", ajuda: "lembre que meu monitor é 100 Hz", re: /^(lembre|lembra|memorize|guarde)\s+que\s+.+/,
-    run: (n, m, t) => { const txt = t.replace(/^(?:lembre|lembra|memorize|guarde)\s+que\s+/i, "");
-      if (/senha|password|token|cpf|cart[aã]o|\bpin\b/i.test(txt)) return ["Prefiro não guardar senhas ou dados de acesso na memória do navegador.", "Prefiro não guardar senhas ou dados de acesso."];
-      const [suj, val] = splitSV(txt), k = slug(suj), mem = lerMem().filter(x => x.chave !== k);
-      mem.push({ chave: k, sujeito: suj, valor: val, ts: Date.now() }); salvarMem(mem); renderMemoria();
-      return ["🧠 Anotado: **" + suj + "** → " + val + ".", "Anotado."]; } },
-  { cat: "MEMÓRIA", ajuda: "esqueça que meu monitor é 100 Hz", re: /^(esqueca|esquece|apague|apaga)\s+que\s+.+/,
-    run: (n, m, t) => { const [suj] = splitSV(t.replace(/^(?:esque[cç]a|esquece|apague|apaga)\s+que\s+/i, "")), k = slug(suj), mem = lerMem(), rest = mem.filter(x => x.chave !== k);
-      salvarMem(rest); renderMemoria();
-      return mem.length === rest.length ? ["Não encontrei essa informação na memória.", "Não encontrei essa informação na memória."] : ["🗑 Memória removida: **" + suj + "**.", "Removido."]; } },
-  { cat: "NAVEGAÇÃO", ajuda: "abrir YouTube · Google · GitHub · ChatGPT · Gmail · Drive", re: /^(?:abra|abrir|abre|va para|vai para|ir para|acesse|acessar|entre no|entra no)\s+(?:o |a |os |as |no |na )?(.+)$/,
-    run: (n, m) => { const k = m[1].trim(), url = SITES[k]; if (!url) return null; const w = window.open(url, "_blank", "noopener");
-      return [w ? "🌐 Abrindo [" + k + "](" + url + ")…" : "O navegador bloqueou a janela. Abra manualmente: [" + k + "](" + url + ")", "Abrindo " + k + "."]; } },
-  { cat: "TEMPO", ajuda: "iniciar · pausar · continuar · zerar cronômetro", re: /cronometro/,
-    run: n => {
-      if (/(zera|zerar|reinicia|reiniciar|reset)/.test(n)) { cron.ini = 0; cron.acc = 0; return ["⏱ Cronômetro zerado.", "Cronômetro zerado."]; }
-      if (/(pare|parar|pausa|pausar|stop)/.test(n)) { cron.acc = cronMs(); cron.ini = 0; return ["⏱ Parado em **" + fmtDur(cron.acc) + "**.", "Cronômetro parado em " + falaDur(cron.acc) + "."]; }
-      if (!cron.ini && /(inicia|iniciar|comece|comecar|start|liga|ligar|continua|continuar|retoma|retomar)/.test(n)) { cron.ini = Date.now(); const x = cron.acc ? "retomado." : "iniciado."; return ["⏱ Cronômetro " + x, "Cronômetro " + x]; }
-      return ["⏱ Cronômetro: **" + fmtDur(cronMs()) + "**" + (cron.ini ? " (correndo)" : " (parado)"), ""]; } },
-  { cat: "TEMPO", ajuda: "timer de 5 minutos · timer de 30 segundos", re: /(temporizador|timer|alarme|me avise|me lembre)/,
-    run: n => {
-      if (/cancel|parar|pare/.test(n)) { timer.fim = 0; return ["⏰ Temporizador cancelado.", "Temporizador cancelado."]; }
-      const ms = lerDuracao(n); if (!ms) return ["Diga a duração, por exemplo: *timer de 5 minutos*.", ""];
-      timer.fim = Date.now() + ms; return ["⏰ Temporizador de **" + fmtDur(ms) + "** iniciado. (Mantenha esta página aberta.)", "Temporizador de " + falaDur(ms) + " iniciado."]; } },
-  { cat: "SISTEMA", re: /^(pesquise|pesquisa|procure|busque)\s+.+/,   // preparado para o futuro (ver JARVIS_PESQUISA)
-    run: () => typeof JARVIS_PESQUISA === "function" ? null : ["🔎 A pesquisa na web ainda não está disponível nesta versão.", "A pesquisa na web ainda não está disponível nesta versão."] },
-  { cat: "CÁLCULO", ajuda: "quanto é 20 por cento de 500?", re: /(\d+(?:[.,]\d+)?)\s*(?:%|por cento)\s*de\s*(\d+(?:[.,]\d+)?)/,
-    run: (n, m) => { const v = parseFloat(m[1].replace(",", ".")) * parseFloat(m[2].replace(",", ".")) / 100;
-      return ["🧮 " + m[1] + "% de " + m[2] + " = **" + fmtNum(v) + "**", "O resultado é " + fmtNum(v) + "."]; } },
-  { cat: "CÁLCULO", ajuda: "calcule 25 vezes 18 · 2 + 2", re: /.+/,
-    run: n => {
-      const mc = n.match(/^(?:calcule|calcula|calcular|calc|quanto (?:e|eh|da))\s+(.+)$/); let expr = mc ? mc[1] : n;
-      expr = expr.replace(/\bmais\b/g, "+").replace(/\bmenos\b/g, "-").replace(/\b(?:vezes|multiplicado por)\b/g, "*").replace(/\b(?:dividido por|dividido)\b/g, "/").replace(/\belevado (?:a|ao)\b/g, "^");
-      if (!(mc || (/^[\d\s.,+\-*/x×÷^%()]+$/.test(expr) && /[+\-*/x×÷^%]/.test(expr)))) return null;
-      if (mc && !/\d/.test(expr)) return null;   // "quanto é a capital..." vai para a IA, não para a calculadora
-      try { const t = fmtNum(calcular(expr)); return ["🧮 `" + expr.trim() + "` = **" + t + "**", "O resultado é " + t + "."]; }
-      catch (e) { return mc ? ["Não consegui interpretar essa conta, senhor.", ""] : null; } } }
-];
-
-// Retorna true se o comando foi tratado localmente (a mensagem NÃO vai para a IA / não gasta tokens)
-function processarComandoLocal(texto) {
-  const t = semPrefixo(texto);
-  const n = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[?!.]+$/g, "").trim();
-  for (const c of JARVIS_COMMANDS) {
-    const m = c.re.exec(n); if (!m) continue;
-    const r = c.run(n, m, t); if (!r) continue;
-    adicionarMensagem(texto, "usuario"); avisarLocal(r[0], r[1]); return true;
-  }
-  return false;
-}
-
-// --- Parar fala (mesmo endpoint /parar já usado pelo botão de voz) ---
-async function pararFala() {
+function pararFala() {
   filaDeVoz = [];
-  try { await fetch(API_VOZ + "/parar", { method: "POST" }); } catch (e) { console.error("Erro ao parar a voz:", e); }
+  if (SINTETIZADOR) SINTETIZADOR.cancel();
+  falando = false;
   document.body.classList.remove("jarvis-falando");
 }
-
 // --- Limpar conversa (só quando o usuário pede; 2 cliques para confirmar) ---
 let confirmaLimpar = 0;
 function limparConversa(btn) {

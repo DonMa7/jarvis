@@ -179,24 +179,35 @@ class MemoriaLocal:
 
     def resposta_contextual(self, texto, contexto_anterior=""):
         """Resolve perguntas simples usando memória local conhecida, sem recorrer a API."""
-        n = _norm(texto).strip(" ?!.")
+        n = _norm(texto).strip(" ?!.,")
         contexto = _norm(contexto_anterior)
         e_monitor = "monitor" in n or "monitor" in contexto
+        competitivo = "competitiv" in n or "competitiv" in contexto
+        jogos = [nome for nome in ("warzone", "valorant") if nome in n]
         if e_monitor:
             with self.lock:
                 hz = self.dados["memorias"]["monitor"].get("monitor", "")
             if hz:
-                if any(x in n for x in ("bom para jogar", "bom pra jogar", "bom para jogos", "bom pra jogos",
-                                         "serve para jogar", "serve pra jogar", "suficiente para jogar",
-                                         "suficiente pra jogar", "vale a pena para jogar")):
+                if competitivo or any(x in n for x in (
+                    "bom para jogar", "bom pra jogar", "bom para jogos", "bom pra jogos",
+                    "serve para jogar", "serve pra jogar", "suficiente para jogar",
+                    "suficiente pra jogar", "vale a pena para jogar", "para jogar", "pra jogar"
+                )):
+                    if jogos:
+                        nomes = " e ".join(jogos).replace(" e valorant", " e Valorant").replace("warzone", "Warzone")
+                        return (
+                            "Sim. Para %s, seu monitor de %s já é uma boa base para jogar. "
+                            "Em competitivo, 100 Hz é melhor que 60 Hz, embora 144 Hz ou mais "
+                            "ainda ofereça mais fluidez e menor intervalo entre atualizações."
+                        ) % (nomes, hz)
                     return (
-                        "Sim. Pelo que o senhor me informou, seu monitor é de %s, então ele já oferece "
-                        "uma fluidez boa para jogos. Para jogos competitivos, 144 Hz ou mais ainda "
-                        "proporciona mais suavidade, mas 100 Hz já é um avanço claro sobre 60 Hz."
+                        "Sim. Seu monitor de %s já é uma boa base para jogos competitivos. "
+                        "100 Hz é claramente mais fluido que 60 Hz, embora 144 Hz ou mais "
+                        "ainda ofereça uma vantagem de fluidez."
                     ) % hz
                 if n in {"meu monitor", "minha tela", "meu display"}:
                     return "Seu monitor está registrado na minha memória como %s." % hz
-                if any(x in n for x in ("quantos hz", "qual a frequencia", "qual frequencia", "qual taxa de atualizacao", "qual taxa de atualizacao")):
+                if any(x in n for x in ("quantos hz", "qual a frequencia", "qual frequencia", "qual taxa de atualizacao")):
                     return "Seu monitor é de %s." % hz
         return None
 

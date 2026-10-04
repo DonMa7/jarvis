@@ -87,21 +87,92 @@ class Orquestrador:
         return mensagem + "\n\n[Documento]\n" + documento if documento else mensagem
 
     # ---------- onde cada capacidade seria executada AGORA ----------
+    def diagnosticar_capacidade(self, nome):
+        """Explica onde uma capacidade pode ser executada agora, sem expor segredos."""
+        c = CAPACIDADES.get(nome)
+        if not c:
+            return {"capacidade": nome, "conhecida": False, "disponivel": False, "rota": "desconhecida", "motivo": "capacidade não registrada"}
+
+        prv = self._provider()
+        dado = c.get("dados")
+        if c["tipo"] == "frontend":
+            return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "frontend", "motivo": "executada pelo site"}
+        if nome == "self_awareness":
+            return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "nucleo_local", "motivo": "diagnóstico determinístico do orquestrador"}
+        if self.local.disponivel() and self.local.suporta(nome) and dado == "texto":
+            return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "modelo_local", "motivo": "modelo local declara suporte"}
+        if nome in FERRAMENTAS:
+            return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "ferramenta_local", "motivo": "ferramenta determinística local"}
+        if nome in FERRAMENTAS_INTERNET:
+            online = self.tem_internet("1.1.1.1")
+            return {"capacidade": nome, "conhecida": True, "disponivel": online, "rota": "internet" if online else "offline",
+                    "motivo": "ferramenta de internet" if online else "sem conexão com a internet",
+                    "requer_internet": True, "fallback": "nvidia" if self.cfg["API_FALLBACK"] else None}
+        if not self.cfg["API_FALLBACK"]:
+            return {"capacidade": nome, "conhecida": True, "disponivel": False, "rota": "bloqueado", "motivo": "fallback externo desativado"}
+        if not prv or not prv.disponivel():
+            return {"capacidade": nome, "conhecida": True, "disponivel": False, "rota": "indisponivel", "motivo": "provider externo não configurado"}
+        if not prv.suporta(nome):
+            return {"capacidade": nome, "conhecida": True, "disponivel": False, "rota": "indisponivel", "motivo": "provider externo sem suporte"}
+        if self._bloqueio(dado):
+            return {"capacidade": nome, "conhecida": True, "disponivel": False, "rota": "bloqueado", "motivo": "política de privacidade bloqueia o envio",
+                    "dados_externos": dado}
+        if prv.requer_internet and not self.tem_internet(prv.host):
+            return {"capacidade": nome, "conhecida": True, "disponivel": False, "rota": "offline", "motivo": "provider externo sem conexão",
+                    "requer_internet": True}
+        return {"capacidade": nome, "conhecida": True, "disponivel": True, "rota": "externo", "motivo": "provider externo disponível",
+                "provider": prv.nome, "dados_externos": dado or "nenhum", "requer_internet": bool(prv.requer_internet)}
+
+    def diagnosticar(self, texto, tem_imagem=False, tem_documento=False):
+        """Classifica uma mensagem e explica a rota preferida sem executá-la."""
+        cap = classificar(texto, tem_imagem, tem_documento)
+        d = self.diagnosticar_capacidade(cap)
+        d["texto"] = texto
+        d["rota_preferida"] = d["rota"]
+        return d
+
+    def _resumo_capacidades(self):
+        """Resposta curta e determinística para perguntas sobre as próprias capacidades."""
+        nomes = {
+            "basic_math": "cálculos simples",
+            "web_search": "pesquisa na internet",
+            "conversation": "conversa e tarefas de texto",
+            "text_correction": "correção de texto",
+            "summarization": "resumos",
+            "translation": "traduções",
+            "advanced_reasoning": "raciocínio avançado",
+            "complex_code_analysis": "análise de código",
+            "image_analysis": "análise de imagens",
+            "advanced_document_analysis": "análise de documentos",
+        }
+        linhas = ["Senhor, atualmente disponho de:"]
+        for nome, descricao in nomes.items():
+            d = self.diagnosticar_capacidade(nome)
+            if d["disponivel"]:
+                rota = {"modelo_local": "local", "ferramenta_local": "local", "internet": "internet",
+                        "externo": "serviço externo", "frontend": "site"}.get(d["rota"], d["rota"])
+                linhas.append("- %s (%s)." % (descricao, rota))
+        prv = self._provider()
+        if not self.local.disponivel():
+            linhas.append("Meu modelo local ainda não está disponível.")
+        if prv and prv.disponivel():
+            linhas.append("Tenho um provider externo configurado para tarefas que exigem mais capacidade.")
+        return "\n".join(linhas)
+
+    # ---------- onde cada capacidade seria executada AGORA ----------
     def status(self):
         prv, caps = self._provider(), {}
         for nome, c in CAPACIDADES.items():
-            if c["tipo"] == "frontend": onde = "frontend"
-            elif self.local.disponivel() and self.local.suporta(nome) and c.get("dados") == "texto": onde = "modelo local"
-            elif nome in FERRAMENTAS: onde = "ferramenta local"
-            elif nome in FERRAMENTAS_INTERNET: onde = "ferramenta de internet"
-            elif not self.cfg["API_FALLBACK"]: onde = "indisponível (fallback externo desativado)"
-            elif not prv or not prv.disponivel(): onde = "indisponível (sem provider externo configurado)"
-            elif not prv.suporta(nome): onde = "indisponível (provider sem suporte)"
-            elif self._bloqueio(c.get("dados")): onde = "bloqueado por política de privacidade"
-            else: onde = "externo (%s)" % prv.nome
-            caps[nome] = {"descricao": c["desc"], "onde": onde}
+            d = self.diagnosticar_capacidade(nome)
+            caps[nome] = {
+                "descricao": c["desc"],
+                "onde": d["rota"],
+                "disponivel": d["disponivel"],
+                "motivo": d["motivo"],
+            }
         return {"modelo_local": self.local.disponivel(), "provider_externo": prv.nome if prv else None, "provider_externo_pronto": bool(prv and prv.disponivel()),
-                "capacidades": caps, "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA", "PERMITIR_HISTORICO_EXTERNO")}}
+                "modelo_externo": self.cfg.get("NVIDIA_MODEL"), "capacidades": caps,
+                "politica": {k: self.cfg[k] for k in ("API_FALLBACK", "AVISAR_USUARIO", "PERMITIR_ENVIO_DE_IMAGEM", "PERMITIR_ENVIO_DE_DOCUMENTOS", "PERMITIR_MEMORIA_EXTERNA", "PERMITIR_HISTORICO_EXTERNO")}}
 
     # ---------- fluxo principal ----------
     def responder(self, mensagem, imagem=None, documento=None, historico=None, sistema=None):
@@ -114,6 +185,10 @@ class Orquestrador:
             return {"resposta": resposta, "rota": rota, "capacidade": cap, "provider": provider, "detalhe": detalhe}
 
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
+
+        # Autoconsciência: diagnóstico determinístico, sem enviar a pergunta à NVIDIA.
+        if cap == "self_awareness":
+            return fim(self._resumo_capacidades(), "ferramenta", "capability_status_ok", True, "nucleo")
 
         # 1) LOCAL: modelo local
         local_erro = detalhe_local = None

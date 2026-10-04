@@ -143,6 +143,14 @@ class ContextoLocal:
         resultado = u["resultado"]
         rota = u["rota"]
         detalhe = u["detalhe"] or ""
+        referencial = self.eh_followup_referencial(texto)
+
+        # Perguntas referenciais como "e esse?" usam o assunto anterior,
+        # sem confundir com perguntas locais sobre o motivo da resposta.
+        if referencial:
+            ctx = self.contexto_minimo()
+            if ctx:
+                return "Entendi que o senhor está se referindo ao contexto anterior (" + ctx + ")."
 
         if resultado == "copyright_refusal":
             return (
@@ -160,10 +168,6 @@ class ContextoLocal:
         if u["capacidade"] == "self_awareness":
             return "Porque minha resposta anterior descrevia as capacidades que estão disponíveis neste momento."
 
-        if self.eh_followup_referencial(texto):
-            ctx = self.contexto_minimo()
-            if ctx:
-                return "Entendi que o senhor está se referindo ao contexto anterior (" + ctx + ")."
         return "Estou me referindo à resposta imediatamente anterior. Posso detalhar o ponto específico que o senhor deseja esclarecer."
 
 class Registro:

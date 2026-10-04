@@ -254,7 +254,7 @@ class Testes(unittest.TestCase):
         server, chamar = self._servidor(o)
         chamar("POST", "/chat", {"mensagem": "Meu assunto é monitor 100 Hz.", "sessao": "A"})
         chamar("POST", "/chat", {"mensagem": "Meu assunto é RTX 2060.", "sessao": "B"})
-        chamar("POST", "/chat", {"mensagem": "E esse?", "sessao": "A"})
+        chamar("POST", "/chat", {"mensagem": "Compare isso com o que você mencionou antes.", "sessao": "A"})
         # A lista enviada ao provider deve conter apenas o histórico da sessão A.
         self.assertTrue(ext.hist)
         self.assertEqual(ext.hist[0]["content"], "Meu assunto é monitor 100 Hz.")

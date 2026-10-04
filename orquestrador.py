@@ -30,14 +30,60 @@ M_LOCAL_X = "Senhor, não consegui concluir essa tarefa com os meus recursos loc
 
 
 class ContextoLocal:
-    """Memória de curto prazo em RAM. Não grava texto em arquivo e não envia histórico ao provider."""
+    """Memória curta em RAM. Guarda somente o necessário para continuidade local."""
+
+    _PADROES_REFERENCIA = (
+        "ele", "ela", "eles", "elas", "isso", "isto", "esse", "essa", "esses", "essas",
+        "dele", "dela", "deles", "delas", "nele", "nela", "nesse", "nessa",
+    )
+
+    _DOMINIOS = {
+        "pc": ("pc", "computador", "processador", "cpu", "gpu", "placa de video", "placa de vídeo", "ram", "ssd", "hdd"),
+        "monitor": ("monitor", "hz", "refresh", "resolucao", "resolução", "display"),
+        "celular": ("celular", "smartphone", "android", "iphone", "xiaomi", "samsung"),
+        "jogos": ("jogo", "game", "valorant", "minecraft", "lol", "fifa", "elden ring", "steam"),
+        "internet": ("internet", "site", "navegador", "wifi", "wi-fi", "cloudflare"),
+        "investimentos": ("investimento", "investir", "cdi", "selic", "acao", "ações", "cripto", "bitcoin"),
+    }
 
     def __init__(self, maximo=8):
         self.maximo = max(1, int(maximo))
         self.eventos = []
         self.lock = threading.Lock()
 
+    @staticmethod
+    def _tokens(texto):
+        return [x for x in normalizar(texto).split() if len(x) > 2]
+
+    @classmethod
+    def extrair_metadata(cls, texto):
+        n = normalizar(texto)
+        dominios = []
+        for nome, palavras in cls._DOMINIOS.items():
+            if any(p in n for p in palavras):
+                dominios.append(nome)
+
+        entidades = []
+        padroes = (
+            r"\b(?:rtx|gtx|rx)\s*\d{3,4}(?:\s*(?:ti|super|xt))?\b",
+            r"\b(?:i[3579]|xeon)\s*[- ]?[a-z0-9-]+\b",
+            r"\b\d+(?:[.,]\d+)?\s*(?:hz|gb|tb|mb|ddr3|ddr4|ddr5)\b",
+        )
+        for rx in padroes:
+            for m in re.finditer(rx, n):
+                valor = m.group(0).strip()
+                if valor not in entidades:
+                    entidades.append(valor)
+
+        if not entidades:
+            # Poucas palavras relevantes, sem copiar a frase inteira.
+            stop = {"para", "como", "qual", "quais", "essa", "esse", "isso", "aquela", "aquele", "muito", "mais"}
+            entidades = [x for x in cls._tokens(texto) if x not in stop][:5]
+
+        return {"dominios": dominios[:3], "entidades": entidades[:6]}
+
     def atualizar(self, usuario, resposta, resultado, capacidade, rota, detalhe=None):
+        meta = self.extrair_metadata(usuario)
         evento = {
             "usuario": usuario or "",
             "resposta": resposta or "",
@@ -45,6 +91,8 @@ class ContextoLocal:
             "capacidade": capacidade or "",
             "rota": rota or "",
             "detalhe": detalhe or "",
+            "dominios": meta["dominios"],
+            "entidades": meta["entidades"],
         }
         with self.lock:
             self.eventos.append(evento)
@@ -64,12 +112,33 @@ class ContextoLocal:
             "continue", "continua", "e depois?", "e depois"
         }
 
+    @classmethod
+    def eh_followup_referencial(cls, texto):
+        n = normalizar(" ".join((texto or "").strip().split()))
+        palavras = n.split()
+        if not palavras or len(palavras) > 10:
+            return False
+        if n.startswith(("e ", "mas e ", "e a ", "e o ")):
+            return True
+        return any(x in palavras for x in cls._PADROES_REFERENCIA)
+
+    def contexto_minimo(self):
+        u = self.ultimo
+        if not u:
+            return ""
+        partes = []
+        if u.get("dominios"):
+            partes.append("domínio: " + ", ".join(u["dominios"]))
+        if u.get("entidades"):
+            partes.append("entidades: " + ", ".join(u["entidades"]))
+        return "; ".join(partes)
+
     def resolver_followup(self, texto):
-        if not self.eh_followup_curto(texto):
+        if not (self.eh_followup_curto(texto) or self.eh_followup_referencial(texto)):
             return None
         u = self.ultimo
         if not u:
-            return "Não tenho uma resposta anterior suficiente para determinar a que o senhor se refere."
+            return "Não tenho contexto anterior suficiente para determinar a que o senhor se refere."
 
         resultado = u["resultado"]
         rota = u["rota"]
@@ -91,8 +160,11 @@ class ContextoLocal:
         if u["capacidade"] == "self_awareness":
             return "Porque minha resposta anterior descrevia as capacidades que estão disponíveis neste momento."
 
+        if self.eh_followup_referencial(texto):
+            ctx = self.contexto_minimo()
+            if ctx:
+                return "Entendi que o senhor está se referindo ao contexto anterior (" + ctx + ")."
         return "Estou me referindo à resposta imediatamente anterior. Posso detalhar o ponto específico que o senhor deseja esclarecer."
-
 
 class Registro:
     """Registro de eventos de capacidade. JSON pequeno, gravação atômica, seguro entre threads. Não grava o texto das mensagens."""
@@ -267,6 +339,7 @@ class Orquestrador:
             return {"resposta": resposta, "rota": rota, "capacidade": cap, "provider": provider, "detalhe": detalhe}
 
         completo = self._juntar(montar_mensagem(memoria, texto), documento)
+        contexto_minimo = ctx.contexto_minimo()
 
         # Fase 2: inteligência local antes de modelo, internet ou NVIDIA.
         # Pedidos de reprodução integral e continuidade curta não precisam de API.
@@ -301,7 +374,11 @@ class Orquestrador:
         # 1) LOCAL: modelo local
         local_erro = detalhe_local = None
         if not imagem and not documento and self.local.disponivel() and self.local.suporta(cap):
-            try: return fim(self.local.generate(completo, historico, sistema), "local", "local_ok", True, self.local.nome)
+            try:
+                local_mensagem = completo
+                if ctx.eh_followup_referencial(texto) and contexto_minimo:
+                    local_mensagem = "Contexto local relevante: " + contexto_minimo + "\n\nPergunta atual: " + texto
+                return fim(self.local.generate(local_mensagem, historico, sistema), "local", "local_ok", True, self.local.nome)
             except Exception as e: local_erro, detalhe_local = True, "local: %s" % e
         resultado_local = "local_error" if local_erro else ("local_insufficient" if self.local.disponivel() else "local_unavailable")
 
@@ -348,7 +425,9 @@ class Orquestrador:
         if bloq: return fim(bloq, "bloqueado", resultado_local + "+blocked_policy", False, prv.nome)
         if prv.requer_internet and not self.tem_internet(prv.host): return fim(M_OFFLINE, "offline", resultado_local + "+offline", False, prv.nome, prv.nome, "sem internet")
 
-        enviar = completo if self.cfg["PERMITIR_MEMORIA_EXTERNA"] else self._juntar(texto, documento)   # política: sem memória pessoal na NVIDIA
+        enviar = completo if self.cfg["PERMITIR_MEMORIA_EXTERNA"] else self._juntar(texto, documento)
+        if self.cfg["PERMITIR_HISTORICO_EXTERNO"] and ctx.eh_followup_referencial(texto) and contexto_minimo:
+            enviar = "Contexto relevante da conversa: " + contexto_minimo + "\n\nPergunta atual: " + enviar
         # Privacidade: o provider externo recebe o histórico somente quando explicitamente permitido.
         historico_externo = historico if self.cfg["PERMITIR_HISTORICO_EXTERNO"] else []
         try:

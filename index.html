@@ -724,6 +724,81 @@ body.modo-voz .anexo-chip { display:none !important; }
   background:#141414;
 }
 
+
+/* ===== v11: interação dos painéis + rolagem lateral ===== */
+
+/* O sombreado do menu não pode capturar cliques/rolagem do painel */
+body.painel-aberto::after {
+  pointer-events: none !important;
+}
+
+/* O menu lateral é realmente rolável e interativo */
+body.painel-aberto #sides {
+  pointer-events: auto !important;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+}
+
+/* Mantém a conversa central, mas leva a barra de rolagem para a extrema direita */
+#chat {
+  width: 100vw !important;
+  max-width: none !important;
+  margin-left: calc(50% - 50vw) !important;
+  padding-left: max(14px, calc((100vw - 920px) / 2 + 8px)) !important;
+  padding-right: max(14px, calc((100vw - 920px) / 2 + 8px)) !important;
+  overflow-y: auto !important;
+  scrollbar-gutter: stable;
+}
+
+/* Barra de rolagem mais discreta e clicável */
+#chat::-webkit-scrollbar {
+  width: 9px;
+}
+#chat::-webkit-scrollbar-track {
+  background: transparent;
+}
+#chat::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.20);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+#chat::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,.34);
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+#chat {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.24) transparent;
+}
+
+/* O botão de novas mensagens acompanha a lateral direita da tela */
+#btn-descer {
+  position: fixed !important;
+  right: 22px !important;
+  bottom: 112px !important;
+  z-index: 55 !important;
+}
+
+/* Menus e botões ficam acima do sombreado */
+body.painel-aberto #sides,
+body.painel-aberto #btn-painel {
+  z-index: 95 !important;
+}
+
+/* Em celular, mantém a conversa com margens menores */
+@media (max-width: 700px) {
+  #chat {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  #btn-descer {
+    right: 12px !important;
+    bottom: 108px !important;
+  }
+}
+
 </style>
 </head>
 <body>

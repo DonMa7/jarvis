@@ -1,0 +1,20 @@
+name: JARVIS validation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python
+        run: |
+          python -m py_compile server.py jarvis_personalidade.py orquestrador.py capacidades.py jarvis_config.py provider_base.py provider_local.py provider_nvidia.py testes_orquestrador.py verificar_viabilidade_local.py
+      - name: Run tests
+        run: python testes_orquestrador.py

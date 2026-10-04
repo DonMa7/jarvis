@@ -674,6 +674,50 @@ body.modo-voz .voice-exit { box-shadow:0 0 22px rgba(var(--cr),.10); }
 /* Anexo e modo voz não atrapalham o chat */
 body.modo-voz .anexo-chip { display:none !important; }
 
+
+/* ===== v10: acabamento + central de informação ===== */
+#voice-button {
+  background:#202020 !important;
+  border:1px solid rgba(255,255,255,.08) !important;
+  box-shadow:none !important;
+}
+#voice-button:hover { background:#292929 !important; transform:none !important; }
+#voice-button[data-v=on] { color:#c9c9c9; }
+#send-button { margin-left:6px !important; }
+#send-button::before { content:"↑"; }
+
+/* Entrada de imagem mostra que há um anexo pendente */
+#attach-button[data-on="1"] { box-shadow:0 0 0 2px rgba(var(--cr),.12), 0 0 18px rgba(var(--cr),.12); }
+
+/* Cards adicionais do briefing */
+.briefing-grid .wide-card {
+  grid-column:1 / -1;
+  min-height:120px;
+}
+.briefing-grid .summary-card {
+  min-height:150px;
+}
+.summary-row {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px;
+}
+.summary-stat {
+  padding:11px; border-radius:12px; background:#141414; border:1px solid rgba(255,255,255,.06);
+}
+.summary-stat span { display:block; color:#666; font:10px var(--mono); letter-spacing:1px; }
+.summary-stat b { display:block; margin-top:5px; color:#eee; font-size:13px; }
+.hourly-weather {
+  display:grid; grid-template-columns:repeat(6,1fr); gap:7px; margin-top:12px;
+}
+.hour-box {
+  text-align:center; padding:9px 6px; border-radius:11px; background:#141414; border:1px solid rgba(255,255,255,.06);
+}
+.hour-box span { display:block; color:#666; font:10px var(--mono); }
+.hour-box b { display:block; margin-top:4px; color:#eee; font-size:14px; }
+@media (max-width:700px) {
+  .summary-row { grid-template-columns:1fr 1fr; }
+  .hourly-weather { grid-template-columns:repeat(3,1fr); }
+}
+
 </style>
 </head>
 <body>
@@ -825,8 +869,36 @@ body.modo-voz .anexo-chip { display:none !important; }
         </div>
         <div id="news-list"><div class="brief-muted">Carregando notícias…</div></div>
       </section>
+      <section class="brief-card summary-card">
+        <div class="brief-title"><span>SISTEMA</span><b>AGORA</b></div>
+        <div class="summary-row">
+          <div class="summary-stat"><span>HORA</span><b id="info-hora">--:--</b></div>
+          <div class="summary-stat"><span>DATA</span><b id="info-data">--/--</b></div>
+          <div class="summary-stat"><span>REDE</span><b id="info-rede">--</b></div>
+          <div class="summary-stat"><span>BATERIA</span><b id="info-bateria">--</b></div>
+        </div>
+        <div class="brief-mini-grid">
+          <div class="mini-stat"><span>NAVEGADOR</span><b id="info-browser">--</b></div>
+          <div class="mini-stat"><span>PLATAFORMA</span><b id="info-platform">--</b></div>
+        </div>
+      </section>
+      <section class="brief-card summary-card">
+        <div class="brief-title"><span>HORÁRIO MUNDIAL</span><b>AGORA</b></div>
+        <div class="world-clocks">
+          <div class="clock-box"><span>SÃO PAULO</span><b id="clock-sp">--:--</b></div>
+          <div class="clock-box"><span>NOVA YORK</span><b id="clock-ny">--:--</b></div>
+          <div class="clock-box"><span>LONDRES</span><b id="clock-london">--:--</b></div>
+          <div class="clock-box"><span>TÓQUIO</span><b id="clock-tokyo">--:--</b></div>
+        </div>
+      </section>
+      <section class="brief-card wide-card">
+        <div class="brief-title"><span>PREVISÃO</span><b>PRÓXIMAS HORAS</b></div>
+        <div id="weather-hourly" class="hourly-weather">
+          <div class="brief-muted">Abra o briefing para carregar.</div>
+        </div>
+      </section>
     </div>
-    <div class="brief-footer">Dados externos carregados somente quando o briefing é aberto.</div>
+    <div class="brief-footer">Dados externos carregados somente quando o briefing é aberto. Informações locais permanecem no navegador.</div>
   </div>
 </div>
 <div id="notas-overlay" aria-hidden="true">
@@ -1600,6 +1672,8 @@ const BRIEFING_WMO = {
 function abrirBriefing() {
   $("briefing-overlay").classList.add("on");
   $("briefing-overlay").setAttribute("aria-hidden", "false");
+  atualizarInfoLocal();
+  atualizarBateriaBriefing();
   atualizarBriefing();
 }
 function fecharBriefing() {
@@ -1646,7 +1720,8 @@ async function obterClima() {
     }
     const u = "https://api.open-meteo.com/v1/forecast?latitude=" + pos.latitude + "&longitude=" + pos.longitude +
       "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code" +
-      "&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto";
+      "&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset" +
+      "&forecast_days=1&timezone=auto";
     const r = await fetch(u, { cache:"no-store" });
     if (!r.ok) throw new Error("weather " + r.status);
     const d = await r.json();
@@ -1658,6 +1733,26 @@ async function obterClima() {
     $("clima-umid").textContent = Math.round(d.current.relative_humidity_2m) + "%";
     $("clima-vento").textContent = Math.round(d.current.wind_speed_10m) + " km/h";
     $("clima-maxmin").textContent = Math.round(d.daily.temperature_2m_max[0]) + "° / " + Math.round(d.daily.temperature_2m_min[0]) + "°";
+    const hb = $("weather-hourly");
+    if (hb && d.hourly && d.hourly.time) {
+      hb.textContent = "";
+      const agora = new Date();
+      let inicio = 0;
+      for (let i = 0; i < d.hourly.time.length; i++) {
+        if (new Date(d.hourly.time[i]) >= agora) { inicio = i; break; }
+      }
+      for (let j = 0; j < 6 && inicio + j < d.hourly.time.length; j++) {
+        const i = inicio + j;
+        const box = document.createElement("div");
+        box.className = "hour-box";
+        const h = document.createElement("span");
+        h.textContent = new Date(d.hourly.time[i]).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+        const temp = document.createElement("b");
+        temp.textContent = Math.round(d.hourly.temperature_2m[i]) + "°";
+        box.append(h, temp);
+        hb.appendChild(box);
+      }
+    }
   } catch (e) {
     $("clima-local").textContent = cidadeSalva ? cidadeSalva.toUpperCase() : "LOCALIZAÇÃO BLOQUEADA";
     $("clima-temp").textContent = "--°";
@@ -1720,6 +1815,28 @@ async function obterNoticias() {
     box.innerHTML = '<div class="brief-muted">Não foi possível atualizar as notícias agora.</div>';
   }
 }
+
+function atualizarInfoLocal() {
+  const agora = new Date();
+  if ($("info-hora")) $("info-hora").textContent = agora.toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"});
+  if ($("info-data")) $("info-data").textContent = agora.toLocaleDateString("pt-BR");
+  if ($("info-rede")) $("info-rede").textContent = navigator.onLine ? "ONLINE" : "OFFLINE";
+  if ($("info-browser")) $("info-browser").textContent = detectarDispositivo().nav;
+  if ($("info-platform")) $("info-platform").textContent = navigator.platform || "N/A";
+}
+async function atualizarBateriaBriefing() {
+  const el = $("info-bateria");
+  if (!el) return;
+  if (!navigator.getBattery) { el.textContent = "N/A"; return; }
+  try {
+    const b = await navigator.getBattery();
+    const mostrar = () => { el.textContent = Math.round(b.level * 100) + "%" + (b.charging ? " · carregando" : ""); };
+    mostrar();
+    b.addEventListener("levelchange", mostrar);
+    b.addEventListener("chargingchange", mostrar);
+  } catch (e) { el.textContent = "N/A"; }
+}
+
 async function atualizarBriefing() {
   if (briefingAtualizando) return;
   briefingAtualizando = true;

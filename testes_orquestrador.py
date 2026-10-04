@@ -100,6 +100,15 @@ class Testes(unittest.TestCase):
         self.assertEqual(r["rota"], "local")
         self.assertEqual(ext.chamadas, 0)
 
+    def test_ia_local_assume_conversacao_contextual(self):
+        caminho = os.path.join(tempfile.mkdtemp(), "memoria.json")
+        mem = MemoriaLocal(caminho)
+        mem.lembrar("monitor", "monitor", "100 Hz")
+        local = FakeLocal(True)
+        o, ext, _ = montar(local=local, MEMORIA_LOCAL_PATH=caminho)
+        r = o.responder("por quê?")
+        self.assertEqual((r["rota"], r["capacidade"], local.chamadas, ext.chamadas), ("local", "conversation", 1, 0))
+
     def test_fase22_memoria_estruturada_persistente(self):
         caminho = os.path.join(tempfile.mkdtemp(), "memoria.json")
         mem = MemoriaLocal(caminho)

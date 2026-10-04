@@ -116,6 +116,171 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
   .message { max-width: 92%; } h1 { font-size: 14px; letter-spacing: 4px; } #status { font-size: 10px; padding: 5px 10px; } .temas { display: none; } #btn-descer { bottom: 112px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+/* ===== v6: CHATGPT + JARVIS ===== */
+html, body { background: #0b0b0b; color: #ececec; }
+body::before, body::after { opacity: .12; }
+header.top {
+  height: 64px; flex-basis: 64px; padding: 0 20px; gap: 12px;
+  background: rgba(11,11,11,.88); border-bottom: 1px solid rgba(255,255,255,.07);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.logo { gap: 9px; }
+.logo-orb { width: 18px; height: 18px; box-shadow: 0 0 14px var(--c); }
+h1 { font-family: var(--tx); font-size: 16px; letter-spacing: 3px; }
+#relogio { display: none; }
+.paleta-btn {
+  order: 2; height: 38px; min-width: 150px; justify-content: space-between;
+  border-radius: 10px; background: #181818; border-color: rgba(255,255,255,.07);
+}
+.temas { display: none; }
+#status { order: 3; margin-left: 2px; padding: 5px 10px; color: #b8b8b8; border-color: rgba(255,255,255,.08); background: #171717; }
+#main {
+  display: block; padding: 0; position: relative; min-height: 0;
+  background: #0b0b0b;
+}
+#sides { display: none; }
+body.painel-aberto #sides {
+  display: flex; position: fixed; z-index: 85; top: 64px; bottom: 0; left: 0; width: min(340px, 90vw);
+  padding: 14px; gap: 14px; overflow-y: auto; background: #111;
+  border-right: 1px solid rgba(255,255,255,.08); box-shadow: 18px 0 50px rgba(0,0,0,.35);
+}
+body.painel-aberto .side { display: flex; width: 100%; overflow: visible; }
+.stage {
+  width: min(900px, calc(100% - 32px)); height: 100%; margin: 0 auto;
+  gap: 0;
+}
+#chat {
+  width: 100%; padding: 34px 8px 150px; gap: 26px; mask-image: none; -webkit-mask-image: none;
+  scroll-behavior: smooth;
+}
+.message {
+  max-width: 100%; width: 100%; padding: 0 8px; border: 0 !important; box-shadow: none !important;
+  border-radius: 0; background: transparent !important; animation: none;
+  font-size: 15.5px; line-height: 1.72; color: #ececec;
+}
+.jarvis { align-self: flex-start; text-align: left; }
+.usuario { align-self: flex-start; text-align: left; color: #ececec; }
+.usuario::before, .jarvis::before { display: none; }
+.meta { margin-top: 7px; color: #707070; }
+.usuario .meta { justify-content: flex-start; }
+.message code { color: #8fdcff; }
+#btn-descer {
+  right: 50%; bottom: 106px; transform: translateX(50%); border-radius: 999px;
+  background: #171717; border-color: rgba(255,255,255,.1); color: #ddd;
+}
+.composer {
+  position: fixed; z-index: 50; left: 50%; bottom: 18px; transform: translateX(-50%);
+  width: min(900px, calc(100% - 24px)); gap: 8px; padding: 0;
+}
+#atalhos { display: none; }
+.bar-in {
+  min-height: 58px; padding: 8px; gap: 8px; border-radius: 28px;
+  background: #1a1a1a; border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 12px 35px rgba(0,0,0,.32); backdrop-filter: blur(16px);
+}
+.bar-in:focus-within { border-color: rgba(255,255,255,.16); box-shadow: 0 12px 35px rgba(0,0,0,.32); }
+#message {
+  height: 42px; padding: 0 8px; font-size: 15.5px; color: #eee;
+}
+#message::placeholder { color: #8b8b8b; }
+#mic-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; min-width: 42px; height: 42px; padding: 0; border-radius: 50%;
+  background: transparent; border: 0; color: #ddd; font-size: 19px;
+}
+#voice-button {
+  width: 42px; min-width: 42px; height: 42px; padding: 0; border-radius: 50%;
+  border: 0; background: transparent; color: #aaa; font-size: 17px;
+}
+#send-button {
+  width: 42px; min-width: 42px; height: 42px; padding: 0; border-radius: 50%; font-size: 0;
+}
+#send-button::before { content: "↑"; font-size: 22px; line-height: 1; color: #0b0b0b; font-weight: 700; }
+body:not(.modo-voz) #mic-button { display: none; }
+
+/* Modo de voz: holograma JARVIS em tela cheia, escondido no chat normal */
+#voice-overlay { display: none; }
+body.modo-voz #voice-overlay {
+  display: flex; position: fixed; z-index: 100; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 82px 24px 30px; align-items: center; justify-content: center; gap: 18px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(var(--cr),.11), transparent 28%),
+    radial-gradient(circle at 50% 55%, rgba(78,130,255,.07), transparent 42%),
+    rgba(7,7,7,.98);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+body.modo-voz #voice-overlay::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(transparent 0 49.5%, rgba(var(--cr),.05) 50%, transparent 50.5%);
+  background-size: 100% 9px; opacity: .28;
+}
+.voice-head {
+  position: absolute; top: 18px; left: 22px; right: 22px; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.voice-kicker {
+  display: block; font: 600 10px var(--mono); letter-spacing: 3px; color: var(--mut);
+}
+.voice-head strong {
+  display: block; margin-top: 4px; font: 500 16px var(--tx); color: #f2f2f2;
+}
+.voice-close {
+  width: 42px; height: 42px; padding: 0; border-radius: 50%; border: 0;
+  background: #222; color: #eee; font-size: 28px; font-weight: 300;
+}
+body.modo-voz #voice-overlay #orb {
+  width: min(360px, 68vw); height: min(360px, 68vw); flex: 0 0 auto;
+  filter: drop-shadow(0 0 36px rgba(var(--cr),.22));
+}
+body.modo-voz #voice-overlay #orb::after {
+  content: ""; position: absolute; inset: 13%; border-radius: 50%;
+  border: 1px solid rgba(var(--cr),.28); box-shadow: 0 0 70px rgba(var(--cr),.12);
+}
+body.modo-voz #voice-overlay #estado-core {
+  font-size: 11px; letter-spacing: 4px; padding: 6px 14px;
+  background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); color: #bdbdbd;
+}
+body.modo-voz #voice-overlay .hint {
+  max-width: 430px; color: #8d8d8d; font-size: 13px; text-align: center;
+}
+.voice-controls {
+  display: flex; align-items: center; gap: 12px; margin-top: 6px; z-index: 3;
+}
+.voice-round {
+  width: 58px; height: 58px; border-radius: 50%; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #f2f2f2; color: #101010; border: 0; font-size: 21px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.28);
+}
+.voice-round.ghost { background: #222; color: #ddd; font-size: 15px; }
+body.jarvis-ouvindo #voice-mic-overlay { box-shadow: 0 0 0 6px rgba(var(--cr),.1), 0 0 45px rgba(var(--cr),.22); }
+body.jarvis-falando #voice-mic-overlay { color: var(--c); box-shadow: 0 0 0 6px rgba(var(--cr),.08), 0 0 45px rgba(var(--cr),.2); }
+body.modo-voz #chat { opacity: .08; pointer-events: none; }
+body.modo-voz .composer { opacity: 0; pointer-events: none; }
+body.modo-voz #btn-painel, body.modo-voz .paleta-btn, body.modo-voz #status { opacity: 0; pointer-events: none; }
+
+/* Texto de status mais ChatGPT-like */
+.pensando { color: #9a9a9a; letter-spacing: 0; font-family: var(--tx); }
+.dots i { background: #aaa; }
+@media (max-width: 1000px) {
+  #main { padding: 0; }
+  .stage { width: calc(100% - 18px); }
+  #chat { padding: 24px 2px 132px; }
+  .composer { bottom: 12px; width: calc(100% - 18px); }
+  .bar-in { min-height: 56px; border-radius: 27px; }
+  #message { font-size: 16px; }
+}
+@media (max-width: 560px) {
+  header.top { padding: 0 12px; }
+  .paleta-btn { min-width: 42px; width: 42px; font-size: 0; justify-content: center; }
+  .paleta-btn::before { content: "⌕"; font-size: 21px; color: #ddd; }
+  #status { font-size: 10px; }
+  body.modo-voz #voice-overlay { padding: 72px 14px 24px; }
+  body.modo-voz #voice-overlay #orb { width: min(310px, 78vw); height: min(310px, 78vw); }
+  .voice-head { left: 14px; right: 14px; }
+}
+
 </style>
 </head>
 <body>
@@ -160,7 +325,7 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
     </aside>
     <aside class="side" id="side-r">
       <section class="card"><h3>Desempenho</h3>
-        <div class="info"><span class="info-title">IA</span><span class="info-value">NEMOTRON 3 ULTRA</span></div>
+        <div class="info"><span class="info-title">IA</span><span class="info-value">GPT-OSS 20B · FALLBACK</span></div>
         <div class="info"><span class="info-title">Latência</span><span class="info-value" id="latencia">—</span></div>
         <div class="spark" id="grafico-lat"></div>
         <div class="bar" style="margin-top:12px"><i></i></div>
@@ -177,7 +342,14 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
   </div>
 
   <main class="stage">
-    <div class="hero">
+    <div class="hero" id="voice-overlay" aria-hidden="true">
+      <div class="voice-head">
+        <div>
+          <span class="voice-kicker">J.A.R.V.I.S.</span>
+          <strong>Modo de voz</strong>
+        </div>
+        <button class="voice-close" onclick="fecharModoVoz()" aria-label="Fechar modo de voz">×</button>
+      </div>
       <div id="orb" title="Toque para falar">
         <svg id="core" viewBox="0 0 240 240" aria-hidden="true">
           <defs><radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff"/><stop offset=".24" style="stop-color:var(--c)"/><stop offset=".62" style="stop-color:var(--c2)"/><stop offset="1" style="stop-color:var(--c2);stop-opacity:0"/></radialGradient></defs>
@@ -191,9 +363,13 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
           <g class="nucleo"><circle cx="120" cy="120" r="52" fill="url(#g)"/><circle cx="120" cy="120" r="30" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/><polygon points="120,101 136.5,129.5 103.5,129.5" fill="none" stroke="#fff" stroke-width="1.5" opacity=".9"/></g>
         </svg>
       </div>
-      <div id="estado-core" data-e="ocioso">STANDBY</div>
+      <div id="estado-core" data-e="ocioso">PRONTO</div>
       <div id="hud-extra"><span>LAT <b id="h-lat">--</b></span><span>THREADS <b id="h-cpu">N/A</b></span><span>UP <b id="h-up">--</b></span></div>
-      <p class="hint">Toque no núcleo para falar · Ctrl K abre os comandos</p>
+      <p class="hint">Fale com o JARVIS. Toque no microfone para encerrar a escuta.</p>
+      <div class="voice-controls">
+        <button id="voice-mic-overlay" class="voice-round" onclick="alternarMicrofone()" aria-label="Microfone">🎙</button>
+        <button class="voice-round ghost" onclick="pararFala()" aria-label="Parar fala">■</button>
+      </div>
     </div>
     <div id="chat"></div>
     <button class="mini" id="btn-descer" onclick="rolarParaBaixo()">↓ NOVAS</button>
@@ -207,7 +383,7 @@ body.alerta #main { animation: alerta 1s 3; } @keyframes alerta { 50% { box-shad
       </div>
       <div class="bar-in">
         <input id="message" type="text" placeholder="Em que posso ajudar, senhor?" autocomplete="off">
-        <button id="mic-button" data-m="off" onclick="alternarMicrofone()" aria-label="Microfone">🎙 MIC</button>
+        <button id="mic-button" data-m="off" onclick="alternarModoVoz()" aria-label="Modo de voz">🎙</button>
         <button id="voice-button" data-v="on" onclick="alternarVoz()">🔊 VOZ ON</button>
         <button id="send-button" onclick="enviarMensagem()">ENVIAR</button>
       </div>
@@ -286,6 +462,7 @@ function setStatus(online, ms) {
 let enviando = false;
 
 async function enviarMensagem() {
+  if (document.body.classList.contains("modo-voz")) fecharModoVoz();
   const texto = input.value.trim();
   if (!texto || enviando) return;
 
@@ -396,6 +573,29 @@ function dividirEmFrases(texto) {
   if (resto) saida.push(...quebrarLonga(resto));
   return saida;
 }
+function abrirModoVoz() {
+  document.body.classList.add("modo-voz");
+  const ov = $("voice-overlay");
+  if (ov) ov.setAttribute("aria-hidden", "false");
+  alternarMicrofone();
+}
+
+function fecharModoVoz() {
+  if (ouvindo && rec) {
+    try { rec.stop(); } catch (e) {}
+  }
+  pararFala();
+  document.body.classList.remove("modo-voz");
+  const ov = $("voice-overlay");
+  if (ov) ov.setAttribute("aria-hidden", "true");
+  $("mic-button").dataset.m = "off";
+}
+
+function alternarModoVoz() {
+  if (document.body.classList.contains("modo-voz")) fecharModoVoz();
+  else abrirModoVoz();
+}
+
 function alternarVoz() {
   vozAtiva = !vozAtiva;
   $("voice-button").textContent = vozAtiva ? "🔊 VOZ ON" : "🔇 VOZ OFF";
@@ -839,7 +1039,7 @@ function alternarMicrofone() {
   rec.onstart = () => { setMic(true); setLed("mic", "o"); };
   rec.onresult = e => { let t = ""; for (const r of e.results) t += r[0].transcript; input.value = t; if (e.results[e.results.length - 1].isFinal) enviarMensagem(); };
   rec.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") setLed("mic", "x"); else if (e.error !== "no-speech" && e.error !== "aborted") avisarLocal("Não consegui captar o áudio (" + e.error + ").", ""); };
-  rec.onend = () => setMic(false);
+  rec.onend = () => { setMic(false); if (document.body.classList.contains("modo-voz")) { const b = $("voice-mic-overlay"); if (b) b.textContent = "🎙"; } };
   try { rec.start(); } catch (e) { setMic(false); }
 }
 async function verificarMic() {
@@ -887,7 +1087,7 @@ document.addEventListener("pointermove", e => {
   if (c) { const r = c.getBoundingClientRect(); c.style.setProperty("--mx", (e.clientX - r.left) + "px"); c.style.setProperty("--my", (e.clientY - r.top) + "px"); }
   if (!reduzMovimento && e.pointerType === "mouse") $("orb").style.transform = "perspective(700px) rotateY(" + ((e.clientX / innerWidth - .5) * 16) + "deg) rotateX(" + (-(e.clientY / innerHeight - .5) * 16) + "deg)";
 });
-$("orb").onclick = () => alternarMicrofone();   // tocar no núcleo = falar
+$("orb").onclick = () => alternarMicrofone();   // orb controla apenas a escuta dentro do modo de voz
 
 // --- Paleta de comandos (Ctrl/Cmd + K), montada a partir de JARVIS_COMMANDS ---
 function renderPaleta(q) {

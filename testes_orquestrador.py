@@ -69,8 +69,10 @@ class Testes(unittest.TestCase):
         capacidades.FERRAMENTAS_INTERNET["web_search"] = lambda t: "WEB: resultado"
         try:
             o, ext, _ = montar(); r = o.responder("JARVIS, pesquise na internet quem é o presidente do Brasil")
-            self.assertEqual((r["rota"], r["provider"], ext.chamadas), ("internet", "internet", 0))
-            self.assertEqual(r["resposta"], "WEB: resultado")
+            self.assertEqual((r["rota"], r["provider"], ext.chamadas), ("internet+externo", "fake-ext", 1))
+            self.assertTrue(r["resposta"].startswith("EXTERNO"))
+            self.assertIn("WEB: resultado", ext.ultimo[0])
+            self.assertEqual(ext.hist, [])
         finally:
             capacidades.FERRAMENTAS_INTERNET.pop("web_search", None)
         # 3) INTERNET (sem IA) antes da NVIDIA
@@ -205,6 +207,18 @@ class Testes(unittest.TestCase):
         t0 = time.time(); st = chamar("GET", "/")[0]; dt = time.time() - t0; t.join()
         self.assertEqual(st, 200); self.assertLess(dt, 0.8, "GET / deveria responder enquanto a NVIDIA ainda processa")
 
+
+    def test_busca_web_sintetiza_sem_historico(self):
+        capacidades.FERRAMENTAS_INTERNET["web_search"] = lambda t: "Encontrei estas referências na internet:\\n1. Fonte A — https://exemplo.com/a"
+        try:
+            o, ext, _ = montar()
+            r = o.responder("JARVIS, pesquise na internet o preço atual")
+            self.assertEqual(r["rota"], "internet+externo")
+            self.assertIn("Fonte A", ext.ultimo[0])
+            self.assertNotIn("segredo", ext.ultimo[0])
+            self.assertEqual(ext.hist, [])
+        finally:
+            capacidades.FERRAMENTAS_INTERNET.pop("web_search", None)
 
     def test_busca_web_parseia_resultados(self):
         class FakeResp:

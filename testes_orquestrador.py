@@ -123,6 +123,15 @@ class Testes(unittest.TestCase):
         self.assertEqual(ext.chamadas, 1)
         self.assertNotIn("RTX 2060", ext.ultimo[0])
 
+        r = o.responder("meu monitor")
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 1))
+        self.assertIn("100 Hz", r["resposta"])
+
+        r = o.responder("ele é bom para jogar?")
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 1))
+        self.assertIn("100 Hz", r["resposta"])
+        self.assertIn("144 Hz", r["resposta"])
+
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho, PERMITIR_MEMORIA_EXTERNA=True)
         o.responder("Qual a vantagem de 120 Hz para meu monitor?")
         self.assertIn("100 Hz", ext.ultimo[0])

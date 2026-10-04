@@ -352,10 +352,10 @@ if (SINTETIZADOR) {
 }
 
 function limparTextoParaVoz(texto) {
-  return texto.replace(/https?:\\/\\/\\S+/g, "").replace(/[\*\_\#\~\^\<\>\{\}=\\\\\|]/g, " ").replace(/\\s+/g, " ").trim();
+  return texto.replace(/https?:\/\/\S+/g, "").replace(/[\*\_\#\~\^\<\>\{\}=\\\|]/g, " ").replace(/\s+/g, " ").trim();
 }
 function dividirEmFrases(texto) {
-  return texto.split(/(?<=[.!?])\\s+/).map(f => f.trim()).filter(Boolean);
+  return texto.split(/(?<=[.!?])\s+/).map(f => f.trim()).filter(Boolean);
 }
 function alternarVoz() {
   vozAtiva = !vozAtiva;

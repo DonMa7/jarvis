@@ -336,20 +336,15 @@ async function enviarMensagem() {
 let vozAtiva = true;
 let filaDeVoz = [];
 let falando = false;
-const SINTETIZADOR = "speechSynthesis" in window ? window.speechSynthesis : null;
+const SINTETIZADOR = ("speechSynthesis" in window) ? window.speechSynthesis : null;
 let vozNativa = null;
 
 function atualizarVozNativa() {
   if (!SINTETIZADOR) return;
   const vozes = SINTETIZADOR.getVoices();
   const ptbr = vozes.filter(v => /^pt-BR$/i.test(v.lang));
-  const pt = vozes.filter(v => /^pt(-|_)/i.test(v.lang));
-  vozNativa =
-    ptbr.find(v => /google|microsoft|brasil|portugu/i.test(v.name)) ||
-    ptbr[0] ||
-    pt.find(v => /google|microsoft|brasil|portugu/i.test(v.name)) ||
-    pt[0] ||
-    null;
+  const pt = vozes.filter(v => /^pt[-_]/i.test(v.lang));
+  vozNativa = ptbr[0] || pt[0] || null;
 }
 if (SINTETIZADOR) {
   atualizarVozNativa();
@@ -357,95 +352,28 @@ if (SINTETIZADOR) {
 }
 
 function limparTextoParaVoz(texto) {
-  const regras = [
-    [/\`\`\`[\s\S]*?\`\`\`/g, ""],
-    [/\[([^\]]+)\]\([^)]+\)/g, "$1"],
-    [/^#{1,6}\s*/gm, ""],
-    [/\*\*(.*?)\*\*/g, "$1"],
-    [/\b__(.+?)__\b/g, "$1"],
-    [/\*(.*?)\*/g, "$1"],
-    [/\b_(.+?)_\b/g, "$1"],
-    [/\`([^\`]+)\`/g, "$1"],
-    [/^\|.*\|$/gm, ""],
-    [/^\s*[-*+]\s+/gm, ""],
-    [/^\s*\d+\.\s+/gm, ""],
-    [/https?:\/\/\S+/g, ""],
-    [/<[^>]+>/g, ""],
-    [/[\u{1F000}-\u{1FAFF}\u{2190}-\u{21FF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/gu, ""],
-    [/[#~^<>{}=\\]/g, " "],
-    [/\|/g, " "],
-    [/[ \t]+/g, " "],
-    [/\n{2,}/g, "\n"]
-  ];
-  let limpo = texto;
-  for (const [re, sub] of regras) limpo = limpo.replace(re, sub);
-  return limpo.trim();
+  return texto.replace(/https?:\\/\\/\\S+/g, "").replace(/[\*\_\#\~\^\<\>\{\}=\\\\\|]/g, " ").replace(/\\s+/g, " ").trim();
 }
-
-function quebrarLonga(f) {
-  if (f.length <= 110) return [f];
-  const out = [];
-  let acc = "";
-  for (const p of f.replace(/([,;:])\s+/g, "$1\n").split("\n")) {
-    acc = acc ? acc + " " + p : p;
-    if (acc.length >= 45) { out.push(acc); acc = ""; }
-  }
-  if (acc) out.push(acc);
-  return out;
-}
-
 function dividirEmFrases(texto) {
-  return texto
-    .replace(/([.!?])\s+/g, "$1\n")
-    .split("\n")
-    .map(f => f.trim())
-    .filter(f => f.length > 0)
-    .flatMap(quebrarLonga);
+  return texto.split(/(?<=[.!?])\\s+/).map(f => f.trim()).filter(Boolean);
 }
-
 function alternarVoz() {
   vozAtiva = !vozAtiva;
   $("voice-button").textContent = vozAtiva ? "🔊 VOZ ON" : "🔇 VOZ OFF";
-  if (!vozAtiva) {
-    filaDeVoz = [];
-    if (SINTETIZADOR) SINTETIZADOR.cancel();
-    falando = false;
-    document.body.classList.remove("jarvis-falando");
-  }
+  if (!vozAtiva) pararFala();
 }
-
 function processarFilaDeVoz() {
-  if (!SINTETIZADOR || falando) return;
+  if (!SINTETIZADOR || falando || !filaDeVoz.length || !vozAtiva) return;
   falando = true;
-  const falarProxima = () => {
-    if (!vozAtiva || !filaDeVoz.length) {
-      falando = false;
-      document.body.classList.remove("jarvis-falando");
-      return;
-    }
-
-    const frase = filaDeVoz.shift();
-    const u = new SpeechSynthesisUtterance(frase);
-    u.lang = "pt-BR";
-    if (vozNativa) u.voice = vozNativa;
-    u.rate = 0.96;
-    u.pitch = 0.88;
-    u.volume = 1.0;
-
-    u.onstart = () => document.body.classList.add("jarvis-falando");
-    u.onend = () => {
-      const pausa = /[,;:]$/.test(frase) ? 120 : PAUSA_FRASE_MS + (/[?!]$/.test(frase) ? 100 : 0);
-      setTimeout(falarProxima, filaDeVoz.length && vozAtiva ? pausa : 0);
-    };
-    u.onerror = (e) => {
-      console.error("Erro no SpeechSynthesis:", e);
-      falarProxima();
-    };
-    SINTETIZADOR.speak(u);
-  };
-  falarProxima();
+  const fala = new SpeechSynthesisUtterance(filaDeVoz.shift());
+  fala.lang = "pt-BR";
+  if (vozNativa) fala.voice = vozNativa;
+  fala.rate = 0.96; fala.pitch = 0.88; fala.volume = 1.0;
+  fala.onstart = () => document.body.classList.add("jarvis-falando");
+  fala.onend = () => { falando = false; document.body.classList.remove("jarvis-falando"); if (filaDeVoz.length && vozAtiva) setTimeout(processarFilaDeVoz, PAUSA_FRASE_MS); };
+  fala.onerror = e => { console.error("Erro no SpeechSynthesis:", e); falando = false; document.body.classList.remove("jarvis-falando"); if (filaDeVoz.length && vozAtiva) processarFilaDeVoz(); };
+  SINTETIZADOR.speak(fala);
 }
-
 function falarComoJarvis(texto) {
   if (!vozAtiva || !SINTETIZADOR) return;
   const limpo = limparTextoParaVoz(texto);
@@ -453,7 +381,6 @@ function falarComoJarvis(texto) {
   filaDeVoz.push(...dividirEmFrases(limpo));
   processarFilaDeVoz();
 }
-
 function pararFala() {
   filaDeVoz = [];
   if (SINTETIZADOR) SINTETIZADOR.cancel();

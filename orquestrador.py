@@ -392,6 +392,12 @@ class Orquestrador:
         memoria = minimizar_memoria(memoria, texto)            # só a memória relevante à pergunta sobrevive
         cap = classificar(texto, bool(imagem), bool(documento))
         ctx = contexto_local or self.contexto_local
+
+        # Quando há IA local disponível, continuações conversacionais deixam
+        # de ser resolvidas por regras de frases e passam ao modelo semântico.
+        if cap == "local_dialogue" and self.local.disponivel() and self.local.suporta("conversation"):
+            cap = "conversation"
+
         seguimento_contextual = cap == "conversation" and ctx.eh_seguimento_contextual(texto)
         def fim(resposta, rota, resultado, sucesso, provider=None, fallback=None, detalhe=None):
             self.registro.evento(cap, resultado, sucesso, fallback=fallback, ms=(time.time() - t0) * 1000, has_image=bool(imagem), has_document=bool(documento))

@@ -275,6 +275,7 @@ class Orquestrador:
         """Resposta curta e determinística para perguntas sobre as próprias capacidades."""
         nomes = {
             "basic_math": "cálculos simples",
+            "unit_conversion": "conversão de unidades",
             "web_search": "pesquisa na internet",
             "conversation": "conversa e tarefas de texto",
             "text_correction": "correção de texto",

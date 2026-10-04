@@ -139,7 +139,7 @@ class Testes(unittest.TestCase):
         self.assertNotIn("RTX 2060", ext.ultimo[0])
 
         r = o.responder("meu monitor")
-        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "persistent_memory", 1))
+        self.assertEqual((r["rota"], r["capacidade"], ext.chamadas), ("local", "conversation", 1))
         self.assertIn("100 Hz", r["resposta"])
 
         r = o.responder("meu processador é um i5 3570k")

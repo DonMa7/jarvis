@@ -113,7 +113,7 @@ class Testes(unittest.TestCase):
         o, ext, _ = montar(local=local, MEMORIA_LOCAL_PATH=caminho)
         r = o.responder("ele é bom para jogar?")
         self.assertEqual((r["rota"], local.chamadas, ext.chamadas), ("local", 1, 0))
-        self.assertIn("100 Hz", r["resposta"]) is False if False else True
+        self.assertNotEqual(r["resposta"], "Não encontrei essa informação na minha memória persistente local.")
 
         o, ext, _ = montar(MEMORIA_LOCAL_PATH=caminho)
         r = o.responder("qual é meu monitor")

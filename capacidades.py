@@ -179,6 +179,10 @@ def _eh_seguimento_referencial(n):
         return True
     if p0 == "e" and len(partes) >= 2:
         p1 = partes[1].rstrip("?!.,")
+        if p1 in {"a", "o", "as", "os"} and len(partes) > 2:
+            p2 = partes[2].rstrip("?!.,")
+            if p2 in {"que", "quem", "como", "quando", "onde", "mais", "menos"}:
+                return False
         return p1 in {"a", "o", "as", "os", "essa", "esse", "esta", "este", "isso", "isto", "ele", "ela", "eles", "elas", "aquele", "aquela"}
     if p0 == "mas" and len(partes) >= 3 and partes[1].rstrip("?!.,") == "e":
         p2 = partes[2].rstrip("?!.,")

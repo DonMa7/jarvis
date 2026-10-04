@@ -14,7 +14,7 @@ from orquestrador import Orquestrador
 # Sem ela, o JARVIS continua funcionando com as ferramentas locais.
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
 
-MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
+MODEL = __import__("jarvis_config").carregar()["NVIDIA_MODEL"]
 
 # =========================================
 # NÚCLEO HÍBRIDO
@@ -270,7 +270,7 @@ def main():
     print("Servidor iniciado.")
     print("Porta: 8080")
     print("IP: 192.168.0.115")
-    print("IA: NVIDIA Nemotron 3 Ultra (fallback)")
+    print("IA:", MODEL, "(fallback)")
     print("Personalidade: JARVIS MCU")
     print("Núcleo: LOCAL > FERRAMENTA > INTERNET > NVIDIA")
     print("Modelo local:", "ONLINE" if status["modelo_local"] else "nenhum")
